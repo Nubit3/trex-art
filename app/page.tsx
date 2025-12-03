@@ -192,7 +192,7 @@ export default function Home() {
             </a>
 
             <a
-              href="mailto:trex.btc.rth@gmail.com"
+              href="mailto:trex.btc.eth@gmail.com"
               className="flex items-center gap-3 hover:text-lime-300 transition"
             >
               <Mail /> trex.btc.rth@gmail.com
