@@ -1,26 +1,28 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* REXTOON background – dark jungle + subtle dino scale pattern */
+.rex-bg {
+  /* dark base */
+  background-color: #020617;
+
+  /* dotted / scaly texture + soft gradients */
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(34, 197, 94, 0.18) 1px, transparent 0),
+    radial-gradient(circle at 13px 13px, rgba(45, 212, 191, 0.14) 1px, transparent 0),
+    radial-gradient(circle at top, rgba(16, 185, 129, 0.35), transparent 55%),
+    radial-gradient(circle at bottom, rgba(56, 189, 248, 0.25), transparent 55%);
+  background-size:
+    24px 24px,
+    24px 24px,
+    cover,
+    cover;
+  background-attachment: fixed;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
