@@ -216,7 +216,7 @@ export default function Home() {
           <div className="flex items-center gap-6">
             {/* X (Twitter) */}
             <a
-              href="https://x.com/your_profile"
+              href="https://x.com/trex_btc"
               target="_blank"
               rel="noreferrer"
             >
@@ -231,7 +231,7 @@ export default function Home() {
 
             {/* Telegram */}
             <a
-              href="https://t.me/your_telegram"
+              href="https://t.me/trex_btc"
               target="_blank"
               rel="noreferrer"
             >
@@ -260,7 +260,7 @@ export default function Home() {
             </a>
 
             {/* Email */}
-            <a href="mailto:your_email@example.com">
+            <a href="trex.btc.eth@gmail.com">
               <Image
                 src="/icons/email.png"
                 width={26}
