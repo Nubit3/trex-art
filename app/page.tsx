@@ -1,36 +1,65 @@
-"use client";
-
 import Image from "next/image";
 import { Baloo_2 } from "next/font/google";
-import { useState, useEffect } from "react";
-import ImageModal from "./components/ImageModal";
+import fs from "fs";
+import path from "path";
+import ArtSection from "./components/ArtSection";
+import RexyChatbot from "./components/RexyChatbot";
 
-import {
-  Twitter,
-  Send,
-  MessageCircle,
-  Mail,
-} from "lucide-react";
-
-// Cartoon heading font
+// Cartoon heading font for logo/titles
 const baloo = Baloo_2({ subsets: ["latin"] });
 
+// 📌 Read all images from public/art (server-side)
+function getGalleryImages() {
+  const artDir = path.join(process.cwd(), "public", "art");
+
+  if (!fs.existsSync(artDir)) {
+    return [];
+  }
+
+  const files = fs.readdirSync(artDir);
+
+  const imageFiles = files
+    .filter((file) => /\.(png|jpe?g|gif|webp)$/i.test(file)) // only image files
+    .map((file) => ({
+      name: file,
+      time: fs.statSync(path.join(artDir, file)).mtime.getTime(), // modified time
+    }))
+    .sort((a, b) => a.time - b.time) // oldest → newest
+    .map((file) => `/art/${file.name}`); // convert to public URLs
+
+  return imageFiles;
+}
+
+// 📌 Read all images from public/comics (server-side)
+function getComicsImages() {
+  const comicsDir = path.join(process.cwd(), "public", "comics");
+
+  if (!fs.existsSync(comicsDir)) {
+    return [];
+  }
+
+  const files = fs.readdirSync(comicsDir);
+
+  const imageFiles = files
+    .filter((file) => /\.(png|jpe?g|gif|webp)$/i.test(file)) // only image files
+    .map((file) => ({
+      name: file,
+      time: fs.statSync(path.join(comicsDir, file)).mtime.getTime(),
+    }))
+    .sort((a, b) => a.time - b.time)
+    .map((file) => `/comics/${file.name}`);
+
+  return imageFiles;
+}
+
 export default function Home() {
-  const [galleryImages, setGalleryImages] = useState<string[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-
-  // Load images from API
-  useEffect(() => {
-    fetch("/api/gallery")
-      .then((res) => res.json())
-      .then((imgs) => setGalleryImages(imgs));
-  }, []);
-
+  const galleryImages = getGalleryImages();
+  const comicsImages = getComicsImages();
   const featuredImage =
-    galleryImages[galleryImages.length - 1] || "/art/featured.jpg";
+    galleryImages[galleryImages.length - 1] || "/art/image1.jpg"; // fallback
 
   return (
-    <main className="rex-bg min-h-screen text-slate-50">
+    <main className="rex-bg min-h-screen text-slate-50 relative">
       <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
         {/* NAVBAR */}
         <header className="flex items-center justify-between mb-10 md:mb-12">
@@ -49,11 +78,11 @@ export default function Home() {
             <a href="#gallery" className="hover:text-lime-200 transition-colors">
               Gallery
             </a>
+            <a href="#comics" className="hover:text-lime-200 transition-colors">
+              Comics
+            </a>
             <a href="#about" className="hover:text-lime-200 transition-colors">
               About
-            </a>
-            <a href="#connect" className="hover:text-lime-200 transition-colors">
-              Connect
             </a>
             <a href="#contact" className="hover:text-lime-200 transition-colors">
               Contact
@@ -117,7 +146,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* FEATURED ART */}
+          {/* FEATURED ART CARD */}
           <div id="featured" className="glow-card">
             <div className="rounded-3xl bg-slate-950/70 border border-emerald-700/80 shadow-[0_0_40px_rgba(16,185,129,0.65)] p-4 md:p-5 backdrop-blur-xl">
               <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-900 via-sky-900 to-fuchsia-900">
@@ -128,77 +157,40 @@ export default function Home() {
                   sizes="(min-width: 1024px) 320px, (min-width: 768px) 50vw, 100vw"
                   className="object-cover"
                 />
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(56,189,248,0.35),transparent_55%),radial-gradient(circle_at_100%_100%,rgba(244,114,182,0.4),transparent_55%)] mix-blend-screen opacity-70" />
+              </div>
+
+              <div className="mt-4 text-[0.7rem] md:text-xs text-emerald-50/90 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold">Featured artwork</div>
+                  <div className="text-emerald-300/75">
+                    Handmade · Scanned · REXTOON style
+                  </div>
+                </div>
+                <span className="px-3 py-1 rounded-full border border-lime-300/80 bg-lime-300/15 text-[0.65rem] uppercase tracking-[0.18em] text-lime-200">
+                  NEW
+                </span>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ART GALLERY */}
-        <section id="gallery" className="mb-20">
-          <h3 className={`${baloo.className} text-xl text-emerald-50 mb-4`}>
-            Art Gallery
-          </h3>
+        {/* ART GALLERY WITH RATING */}
+        <ArtSection
+          id="gallery"
+          title="Art Gallery"
+          images={galleryImages}
+          enableRating
+          headingClassName={baloo.className}
+        />
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {galleryImages.map((src, i) => (
-              <div
-                key={src + i}
-                onClick={() => setSelectedIndex(i)}
-                className="group relative rounded-2xl overflow-hidden border border-emerald-700/50 bg-slate-950/70 shadow-[0_0_25px_rgba(16,185,129,0.3)] hover:shadow-[0_0_35px_rgba(56,189,248,0.6)] transition-all cursor-pointer"
-              >
-                <div className="relative w-full h-40 md:h-52">
-                  <Image
-                    src={src}
-                    alt={`Artwork ${i + 1}`}
-                    fill
-                    sizes="(min-width: 1024px) 220px, (min-width: 768px) 33vw, 50vw"
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* CONNECT WITH ME */}
-        <section id="connect" className="mb-20">
-          <h3 className={`${baloo.className} text-xl text-emerald-50 mb-4`}>
-            Connect With Me
-          </h3>
-
-          <div className="flex flex-col gap-4 text-cyan-200 text-lg">
-            <a
-              href="https://x.com/trex_btc"
-              target="_blank"
-              className="flex items-center gap-3 hover:text-lime-300 transition"
-            >
-              <Twitter /> @trex_btc
-            </a>
-
-            <a
-              href="https://t.me/trex_btc"
-              target="_blank"
-              className="flex items-center gap-3 hover:text-lime-300 transition"
-            >
-              <Send /> Telegram: @trex_btc
-            </a>
-
-            <a
-              href="https://discord.com/users/1041937099496103956"
-              target="_blank"
-              className="flex items-center gap-3 hover:text-lime-300 transition"
-            >
-              <MessageCircle /> Discord
-            </a>
-
-            <a
-              href="mailto:trex.btc.eth@gmail.com"
-              className="flex items-center gap-3 hover:text-lime-300 transition"
-            >
-              <Mail /> trex.btc.rth@gmail.com
-            </a>
-          </div>
-        </section>
+        {/* COMICS SECTION */}
+        <ArtSection
+          id="comics"
+          title="Rex Comics"
+          images={comicsImages}
+          headingClassName={baloo.className}
+        />
 
         {/* ABOUT */}
         <section id="about" className="mb-14">
@@ -206,48 +198,30 @@ export default function Home() {
             About REXTOON
           </h3>
           <p className="text-emerald-100/85 text-sm md:text-base max-w-2xl leading-relaxed">
-            REXTOON is my cartoon universe about a tiny T-Rex trying to become a Web3 legend.
-            I mix handmade sketchbook drawings with digital colour and storytelling.
-            This website is the home for my artwork, experiments, and future NFT drops.
+            REXTOON is my cartoon universe about a tiny T-Rex trying to become a
+            Web3 legend. I mix handmade sketchbook drawings with digital colour and
+            crypto storytelling. This website is the main hub for my T-Rex art,
+            experiments and future NFT drops.
           </p>
         </section>
 
-        {/* FOOTER */}
+        {/* CONTACT */}
         <section
           id="contact"
           className="border-t border-emerald-800/70 pt-6 pb-2 text-[0.8rem] text-emerald-200/85 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
         >
-          <p>Reach me on socials:</p>
-
-          <div className="flex gap-5 text-lg text-cyan-200">
-            <a href="https://x.com/trex_btc" target="_blank">
-              <Twitter className="hover:text-lime-300 transition" />
-            </a>
-            <a href="https://t.me/trex_btc" target="_blank">
-              <Send className="hover:text-lime-300 transition" />
-            </a>
-            <a
-              href="https://discord.com/users/1041937099496103956"
-              target="_blank"
-            >
-              <MessageCircle className="hover:text-lime-300 transition" />
-            </a>
-            <a href="mailto:trex.btc.rth@gmail.com">
-              <Mail className="hover:text-lime-300 transition" />
-            </a>
-          </div>
+          <p>
+            For commissions, collabs or NFT ideas, reach me on X:&nbsp;
+            <span className="text-lime-300 font-medium">@trex_btc</span>
+          </p>
+          <p className="text-cyan-300/80">
+            Built with ❤️ inside the REXTOON universe.
+          </p>
         </section>
       </div>
 
-      {/* FULLSCREEN MODAL */}
-      {selectedIndex !== null && galleryImages.length > 0 && (
-        <ImageModal
-          images={galleryImages}
-          index={selectedIndex}
-          onClose={() => setSelectedIndex(null)}
-          onIndexChange={(newIndex) => setSelectedIndex(newIndex)}
-        />
-      )}
+      {/* Floating Rexy chatbot bubble */}
+      <RexyChatbot />
     </main>
   );
 }

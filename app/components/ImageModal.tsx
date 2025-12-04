@@ -1,159 +1,169 @@
 "use client";
 
-import { useEffect, useCallback, useRef, useState } from "react";
 import Image from "next/image";
-import { X, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 type ImageModalProps = {
   images: string[];
-  index: number;
+  currentIndex: number;
   onClose: () => void;
-  onIndexChange: (newIndex: number) => void;
+  onNext: () => void;
+  onPrev: () => void;
 };
 
 export default function ImageModal({
   images,
-  index,
+  currentIndex,
   onClose,
-  onIndexChange,
+  onNext,
+  onPrev,
 }: ImageModalProps) {
-  const [scale, setScale] = useState(1);
-  const [translate, setTranslate] = useState({ x: 0, y: 0 });
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [zoomed, setZoomed] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
 
-  const currentSrc = images[index];
+  const src = images[currentIndex];
 
-  // --- navigation ---
-  const goPrev = useCallback(() => {
-    onIndexChange((index - 1 + images.length) % images.length);
-    setScale(1);
-    setTranslate({ x: 0, y: 0 });
-  }, [index, images.length, onIndexChange]);
-
-  const goNext = useCallback(() => {
-    onIndexChange((index + 1) % images.length);
-    setScale(1);
-    setTranslate({ x: 0, y: 0 });
-  }, [index, images.length, onIndexChange]);
-
-  // --- keyboard shortcuts ---
+  // reset zoom when changing image
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
+    setZoomed(false);
+  }, [currentIndex]);
+
+  // close on ESC
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft") goPrev();
-      if (e.key === "ArrowRight") goNext();
+      if (e.key === "ArrowRight") onNext();
+      if (e.key === "ArrowLeft") onPrev();
     };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [goPrev, goNext, onClose]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose, onNext, onPrev]);
 
-  // --- simple wheel zoom ---
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setScale((s) => {
-      const next = Math.min(3, Math.max(1, s + delta));
-      if (next === 1) setTranslate({ x: 0, y: 0 });
-      return next;
-    });
+  const handleBackdropClick = () => {
+    onClose();
   };
 
-  // --- drag when zoomed ---
-  const isDragging = useRef(false);
-  const lastPos = useRef({ x: 0, y: 0 });
-
-  const onMouseDown = (e: React.MouseEvent) => {
-    if (scale === 1) return;
-    isDragging.current = true;
-    lastPos.current = { x: e.clientX, y: e.clientY };
+  const handleInnerClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
   };
 
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging.current) return;
-    const dx = e.clientX - lastPos.current.x;
-    const dy = e.clientY - lastPos.current.y;
-    lastPos.current = { x: e.clientX, y: e.clientY };
-    setTranslate((t) => ({ x: t.x + dx, y: t.y + dy }));
+  const handleImageClick = () => {
+    setZoomed((z) => !z);
   };
 
-  const onMouseUp = () => {
-    isDragging.current = false;
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
   };
 
-  // --- close when clicking backdrop ---
-  const backdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current === null || touchEndX.current === null) return;
+    const diff = touchEndX.current - touchStartX.current;
+
+    if (Math.abs(diff) > 50) {
+      if (diff < 0) {
+        onNext(); // swipe left → next
+      } else {
+        onPrev(); // swipe right → prev
+      }
+    }
+
+    touchStartX.current = null;
+    touchEndX.current = null;
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-lg"
-      onClick={backdropClick}
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center px-2 md:px-6"
+      onClick={handleBackdropClick}
     >
-      {/* Close button */}
-      <button
-        className="absolute top-4 right-4 p-2 rounded-full bg-slate-900/80 text-slate-100 hover:bg-slate-800"
-        onClick={onClose}
+      <div
+        className="relative max-w-4xl w-full max-h-[90vh] bg-slate-950/90 border border-emerald-700/80 rounded-3xl shadow-[0_0_60px_rgba(56,189,248,0.8)] overflow-hidden flex flex-col"
+        onClick={handleInnerClick}
       >
-        <X className="w-5 h-5" />
-      </button>
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-emerald-800/70 text-[0.8rem] text-emerald-100">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🦖</span>
+            <div className="flex flex-col">
+              <span className="font-semibold">Rexy Viewer</span>
+              <span className="text-[0.65rem] text-emerald-200/80">
+                Tap image to {zoomed ? "unzoom" : "zoom"} · Swipe on mobile
+              </span>
+            </div>
+          </div>
 
-      {/* Prev / Next arrows */}
-      <button
-        className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-slate-900/80 hover:bg-slate-800"
-        onClick={goPrev}
-      >
-        <ChevronLeft className="w-6 h-6 text-slate-100" />
-      </button>
-      <button
-        className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-slate-900/80 hover:bg-slate-800"
-        onClick={goNext}
-      >
-        <ChevronRight className="w-6 h-6 text-slate-100" />
-      </button>
+          <div className="flex items-center gap-2">
+            {/* Download button */}
+            <a
+              href={src}
+              download
+              className="px-3 py-1.5 rounded-full bg-lime-300 text-slate-900 text-[0.7rem] font-semibold border border-lime-300 shadow-[0_0_25px_rgba(190,242,100,0.8)] hover:bg-lime-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              ⬇ Download
+            </a>
 
-      <div className="flex flex-col items-center gap-4">
-        {/* Image container */}
-        <div
-          ref={containerRef}
-          className="relative max-w-[90vw] max-h-[80vh] w-[min(480px,90vw)] aspect-[3/4] rounded-3xl border border-emerald-500/60 bg-slate-950/90 shadow-[0_0_40px_rgba(16,185,129,0.7)] overflow-hidden"
-          onWheel={handleWheel}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseUp}
-        >
-          {/* IMPORTANT: use the path exactly as provided */}
-          <div
-            className="relative w-full h-full"
-            style={{
-              transform: `scale(${scale}) translate(${translate.x / scale}px, ${translate.y / scale}px)`,
-              transformOrigin: "center center",
-              transition: isDragging.current ? "none" : "transform 0.15s ease-out",
-            }}
-          >
-            <Image
-              src={currentSrc}          // <-- NO extra `/art/` here
-              alt="Artwork"
-              fill
-              className="object-contain"
-              sizes="90vw"
-            />
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-7 h-7 rounded-full flex items-center justify-center bg-slate-900/90 border border-emerald-700/80 text-xs hover:bg-slate-800"
+            >
+              ✕
+            </button>
           </div>
         </div>
 
-        {/* Download + index */}
-        <div className="flex items-center gap-4 text-xs md:text-sm text-emerald-100">
-          <a
-            href={currentSrc}
-            download
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-lime-300 text-slate-900 font-semibold shadow-[0_0_25px_rgba(190,242,100,0.8)] hover:bg-lime-200"
+        {/* Image area */}
+        <div
+          className="relative flex-1 flex items-center justify-center bg-slate-950"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <button
+            type="button"
+            onClick={onPrev}
+            className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-slate-900/80 border border-emerald-700/80 text-sm text-emerald-100 hover:bg-slate-800"
           >
-            <Download className="w-4 h-4" />
-            Download Image
-          </a>
-          <span className="text-emerald-200/80">
-            {index + 1} / {images.length}
+            ‹
+          </button>
+
+          <div
+            className={`relative max-h-[80vh] max-w-full transition-transform duration-200 ${
+              zoomed ? "scale-110 md:scale-125 cursor-zoom-out" : "scale-100 cursor-zoom-in"
+            }`}
+            onClick={handleImageClick}
+          >
+            <Image
+              src={src}
+              alt={`Artwork ${currentIndex + 1}`}
+              width={1200}
+              height={1200}
+              className="object-contain max-h-[80vh] w-auto h-auto"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={onNext}
+            className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-slate-900/80 border border-emerald-700/80 text-sm text-emerald-100 hover:bg-slate-800"
+          >
+            ›
+          </button>
+        </div>
+
+        {/* Bottom info bar */}
+        <div className="flex items-center justify-between px-4 py-2 border-t border-emerald-800/70 text-[0.75rem] text-emerald-200/85 bg-slate-950/95">
+          <span>
+            Image {currentIndex + 1} of {images.length}
+          </span>
+          <span className="text-[0.7rem] text-cyan-300/85">
+            Use ← → keys or swipe · Press Esc to close
           </span>
         </div>
       </div>
