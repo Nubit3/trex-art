@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import ArtSection from "./components/ArtSection";
 import RexyChatbot from "./components/RexyChatbot";
+import Navbar from "./components/Navbar";
 
 // Cartoon heading font for logo/titles
 const baloo = Baloo_2({ subsets: ["latin"] });
@@ -59,36 +60,24 @@ export default function Home() {
     galleryImages[galleryImages.length - 1] || "/art/image1.jpg"; // fallback
 
   return (
-    <main className="rex-bg min-h-screen text-slate-50 relative">
+    <main className="rex-bg min-h-screen text-slate-50 relative overflow-hidden">
       <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
-        {/* NAVBAR */}
-        <header className="flex items-center justify-between mb-10 md:mb-12">
-          <div className="flex flex-col leading-tight">
-            <span
-              className={`${baloo.className} text-xs md:text-sm uppercase tracking-[0.35em] text-lime-300/90`}
-            >
-              REXTOON
-            </span>
-            <span className="text-[0.65rem] md:text-[0.7rem] uppercase tracking-[0.2em] text-cyan-300/80">
-              Where a Dino Becomes a Web3 Legend.
-            </span>
-          </div>
+        {/* NAVBAR WITH HAMBURGER MENU */}
+        <Navbar brandClassName={baloo.className} />
 
-          <nav className="flex gap-5 md:gap-6 text-xs md:text-sm text-cyan-100/80">
-            <a href="#gallery" className="hover:text-lime-200 transition-colors">
-              Gallery
-            </a>
-            <a href="#comics" className="hover:text-lime-200 transition-colors">
-              Comics
-            </a>
-            <a href="#about" className="hover:text-lime-200 transition-colors">
-              About
-            </a>
-            <a href="#contact" className="hover:text-lime-200 transition-colors">
-              Contact
-            </a>
-          </nav>
-        </header>
+        {/* HEADER BANNER IMAGE */}
+        <section className="mb-14 md:mb-16">
+          <div className="relative w-full aspect-[16/7] rounded-3xl overflow-hidden border border-emerald-700/80 shadow-[0_0_45px_rgba(56,189,248,0.6)]">
+            <Image
+              src="/rextoon-header.jpg" // put the file in public/rextoon-header.jpg
+              alt="REXTOON – Daily Comics & Art Gallery"
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+            />
+          </div>
+        </section>
 
         {/* HERO SECTION */}
         <section className="grid md:grid-cols-[1.1fr_1fr] gap-10 items-center mb-16 md:mb-20">
@@ -146,31 +135,41 @@ export default function Home() {
             </div>
           </div>
 
-          {/* FEATURED ART CARD */}
-          <div id="featured" className="glow-card">
-            <div className="rounded-3xl bg-slate-950/70 border border-emerald-700/80 shadow-[0_0_40px_rgba(16,185,129,0.65)] p-4 md:p-5 backdrop-blur-xl">
-              <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-900 via-sky-900 to-fuchsia-900">
-                <Image
-                  src={featuredImage}
-                  alt="Featured REXTOON artwork"
-                  fill
-                  sizes="(min-width: 1024px) 320px, (min-width: 768px) 50vw, 100vw"
-                  className="object-cover"
-                />
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(56,189,248,0.35),transparent_55%),radial-gradient(circle_at_100%_100%,rgba(244,114,182,0.4),transparent_55%)] mix-blend-screen opacity-70" />
+          {/* FEATURED GOLD CARD */}
+          <div id="featured" className="group relative perspective-[1200px]">
+            <div
+              className="relative rounded-3xl bg-gradient-to-br from-amber-300/40 via-amber-500/10 to-emerald-500/10 p-[2px] shadow-[0_0_45px_rgba(250,204,21,0.6)] transition-transform duration-300 group-hover:-rotate-2 group-hover:-translate-y-1"
+              style={{ transformStyle: "preserve-3d" }}
+            >
+              <div className="rounded-3xl bg-slate-950/90 border border-amber-300/60 px-4 py-4 md:px-5 md:py-5 backdrop-blur-xl">
+                <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-900 via-sky-900 to-fuchsia-900">
+                  <Image
+                    src={featuredImage}
+                    alt="Featured REXTOON artwork"
+                    fill
+                    sizes="(min-width: 1024px) 320px, (min-width: 768px) 50vw, 100vw"
+                    className="object-cover"
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(252,211,77,0.5),transparent_55%),radial-gradient(circle_at_100%_100%,rgba(251,191,36,0.5),transparent_55%)] mix-blend-screen opacity-80" />
+                </div>
+
+                <div className="mt-4 text-[0.7rem] md:text-xs text-amber-50/95 flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold tracking-wide">
+                      Legendary Featured Card
+                    </div>
+                    <div className="text-amber-200/80">
+                      Handmade · Scanned · REXTOON style
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 rounded-full border border-amber-300/90 bg-amber-300/20 text-[0.65rem] uppercase tracking-[0.18em] text-amber-100 shadow-[0_0_18px_rgba(250,204,21,0.8)]">
+                    GOLD
+                  </span>
+                </div>
               </div>
 
-              <div className="mt-4 text-[0.7rem] md:text-xs text-emerald-50/90 flex items-center justify-between">
-                <div>
-                  <div className="font-semibold">Featured artwork</div>
-                  <div className="text-emerald-300/75">
-                    Handmade · Scanned · REXTOON style
-                  </div>
-                </div>
-                <span className="px-3 py-1 rounded-full border border-lime-300/80 bg-lime-300/15 text-[0.65rem] uppercase tracking-[0.18em] text-lime-200">
-                  NEW
-                </span>
-              </div>
+              {/* subtle glow behind card */}
+              <div className="pointer-events-none absolute -inset-4 rounded-[32px] bg-[radial-gradient(circle_at_10%_0%,rgba(250,204,21,0.25),transparent_55%),radial-gradient(circle_at_90%_100%,rgba(59,130,246,0.25),transparent_55%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
             </div>
           </div>
         </section>
@@ -205,18 +204,72 @@ export default function Home() {
           </p>
         </section>
 
-        {/* CONTACT */}
+        {/* CONTACT – ICONS ONLY */}
         <section
           id="contact"
-          className="border-t border-emerald-800/70 pt-6 pb-2 text-[0.8rem] text-emerald-200/85 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+          className="border-t border-emerald-800/70 pt-6 pb-8 text-[0.8rem] text-emerald-200/85 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
         >
-          <p>
-            For commissions, collabs or NFT ideas, reach me on X:&nbsp;
-            <span className="text-lime-300 font-medium">@trex_btc</span>
-          </p>
-          <p className="text-cyan-300/80">
-            Built with ❤️ inside the REXTOON universe.
-          </p>
+          <h4 className={`${baloo.className} text-sm md:text-base`}>
+            Connect with me
+          </h4>
+
+          <div className="flex items-center gap-6">
+            {/* X (Twitter) */}
+            <a
+              href="https://x.com/your_profile"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Image
+                src="/icons/x.png"
+                width={26}
+                height={26}
+                alt="X"
+                className="opacity-80 hover:opacity-100 transition"
+              />
+            </a>
+
+            {/* Telegram */}
+            <a
+              href="https://t.me/your_telegram"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Image
+                src="/icons/telegram.png"
+                width={26}
+                height={26}
+                alt="Telegram"
+                className="opacity-80 hover:opacity-100 transition"
+              />
+            </a>
+
+            {/* Discord */}
+            <a
+              href="https://discord.com/users/1041937099496103956"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Image
+                src="/icons/discord.png"
+                width={26}
+                height={26}
+                alt="Discord"
+                className="opacity-80 hover:opacity-100 transition"
+              />
+            </a>
+
+            {/* Email */}
+            <a href="mailto:your_email@example.com">
+              <Image
+                src="/icons/email.png"
+                width={26}
+                height={26}
+                alt="Email"
+                className="opacity-80 hover:opacity-100 transition"
+              />
+            </a>
+          </div>
         </section>
       </div>
 
