@@ -5,6 +5,7 @@ import path from "path";
 import ArtSection from "./components/ArtSection";
 import RexyChatbot from "./components/RexyChatbot";
 import Navbar from "./components/Navbar";
+import DrawSection from "./components/DrawSection"; // 🆕 draw/paint section
 
 // Cartoon heading font for logo/titles
 const baloo = Baloo_2({ subsets: ["latin"] });
@@ -191,9 +192,14 @@ export default function Home() {
           headingClassName={baloo.className}
         />
 
+        {/* DRAW SECTION 🖌️ */}
+        <DrawSection headingClassName={baloo.className} />
+
         {/* ABOUT */}
         <section id="about" className="mb-14">
-          <h3 className={`${baloo.className} text-lg md:text-xl mb-3 text-emerald-50`}>
+          <h3
+            className={`${baloo.className} text-lg md:text-xl mb-3 text-emerald-50`}
+          >
             About REXTOON
           </h3>
           <p className="text-emerald-100/85 text-sm md:text-base max-w-2xl leading-relaxed">
@@ -215,11 +221,7 @@ export default function Home() {
 
           <div className="flex items-center gap-6">
             {/* X (Twitter) */}
-            <a
-              href="https://x.com/trex_btc"
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a href="https://x.com/trex_btc" target="_blank" rel="noreferrer">
               <Image
                 src="/icons/x.png"
                 width={26}
@@ -230,11 +232,7 @@ export default function Home() {
             </a>
 
             {/* Telegram */}
-            <a
-              href="https://t.me/trex_btc"
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a href="https://t.me/trex_btc" target="_blank" rel="noreferrer">
               <Image
                 src="/icons/telegram.png"
                 width={26}
@@ -260,7 +258,7 @@ export default function Home() {
             </a>
 
             {/* Email */}
-            <a href="trex.btc.eth@gmail.com">
+            <a href="mailto:trex.btc.eth@gmail.com">
               <Image
                 src="/icons/email.png"
                 width={26}

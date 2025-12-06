@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rexy Runner Game</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #0b1824;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      cursor: pointer;
+      outline: none;
+      border: 1px solid #666666;
+      border-radius: 6px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+      background-color: #0b1824;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="rexyCanvas" width="600" height="150" tabindex="0"></canvas>
+
+<script>
+  // --- GAME CONFIG ---
+  const CANVAS_WIDTH = 600;
+  const CANVAS_HEIGHT = 150;
+  const INITIAL_SPEED = 2.0;
+  const GRAVITY = 0.6;
+  const JUMP_VELOCITY = -10;
+  const ACCELERATION_RATE = 0.00015;
+  const GROUND_OFFSET = 4;
+  const SCORE_X_POSITION = CANVAS_WIDTH - 20;
+
+  // --- ANIMATION CONFIG ---
+  const FRAMES_PER_SPRITE = 2;          // 2 frames in one row
+  const ANIMATION_FPS = 10;             // Dino-like run speed
+  const FRAME_DURATION = 1000 / ANIMATION_FPS; // ms per animation frame
+
+  // --- CHARACTER SIZE ---
+  const REXY_TARGET_HEIGHT = 78;        // on-screen height in px
+
+  let REXY_FRAME_WIDTH = 40;
+  let REXY_FRAME_HEIGHT = 45;
+  let REXY_DISPLAY_WIDTH = 40;
+  let REXY_DISPLAY_HEIGHT = REXY_TARGET_HEIGHT;
+
+  const OBSTACLE_SCALE = 0.5;
+
+  // --- ASSETS ---
+  const rexyRunSheet = new Image();
+  rexyRunSheet.src = "/rexy-run-sheet.png";   // 2-frame sheet
+
+  const rexyJumpImage = new Image();
+  rexyJumpImage.src = "/rexy-jump.png";
+
+  const candleImage = new Image();
+  candleImage.src = "/obstacle-red-candle.png";
+
+  const gasFeeImage = new Image();
+  gasFeeImage.src = "/obstacle-gas-pump.png";
+
+  const OBSTACLE_TYPES = [
+    { image: candleImage, width: 25, height: 40 },
+    { image: gasFeeImage, width: 30, height: 35 },
+  ];
+
+  const canvas = document.getElementById("rexyCanvas");
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false; // crisp pixels
+
+  // --- GAME STATE ---
+  let score = 0;
+  let highScore = 0;
+  let speed = INITIAL_SPEED;
+  let isGameOver = false;
+  let gameStarted = false;
+  let obstacles = [];
+  let lastObstacleTime = 0;
+
+  let currentFrameIndex = 0;
+  let lastFrameChangeTime = 0; // ms timestamp of last frame change
+
+  // --- REXY OBJECT ---
+  const rexy = {
+    x: 60,
+    y: CANVAS_HEIGHT - REXY_DISPLAY_HEIGHT - GROUND_OFFSET,
+    width: REXY_DISPLAY_WIDTH,
+    height: REXY_DISPLAY_HEIGHT,
+    velocityY: 0,
+    isJumping: false,
+
+    draw() {
+      const sheetLoaded =
+        rexyRunSheet.complete && rexyRunSheet.naturalWidth > 0;
+      const jumpLoaded =
+        rexyJumpImage.complete && rexyJumpImage.naturalWidth > 0;
+
+      const drawWidth = this.width;
+      const drawHeight = this.height;
+
+      if (this.isJumping || isGameOver) {
+        // Jump pose (scaled same as running)
+        if (jumpLoaded) {
+          ctx.drawImage(
+            rexyJumpImage,
+            this.x,
+            this.y,
+            drawWidth,
+            drawHeight
+          );
+        } else {
+          ctx.fillStyle = "#34d399";
+          ctx.fillRect(this.x, this.y, drawWidth, drawHeight);
+        }
+      } else if (sheetLoaded) {
+        // 2-frame run animation with small inner padding to avoid artifacts
+        const frameInnerPadding = 1; // tweak 0–2 if needed
+
+        const sx = currentFrameIndex * REXY_FRAME_WIDTH + frameInnerPadding;
+        const sy = 0;
+        const sWidth = REXY_FRAME_WIDTH - frameInnerPadding * 2;
+        const sHeight = REXY_FRAME_HEIGHT;
+
+        ctx.drawImage(
+          rexyRunSheet,
+          sx, sy,
+          sWidth, sHeight,
+          this.x, this.y,
+          drawWidth, drawHeight
+        );
+      } else {
+        ctx.fillStyle = "#34d399";
+        ctx.fillRect(this.x, this.y, drawWidth, drawHeight);
+      }
+
+      // Debug: uncomment this if you want to see bounds
+      // ctx.strokeStyle = "red";
+      // ctx.strokeRect(this.x, this.y, drawWidth, drawHeight);
+    },
+
+    update(timestamp) {
+      // Jump physics
+      if (this.isJumping) {
+        this.y += this.velocityY;
+        this.velocityY += GRAVITY;
+
+        if (this.y >= CANVAS_HEIGHT - this.height - GROUND_OFFSET) {
+          this.y = CANVAS_HEIGHT - this.height - GROUND_OFFSET;
+          this.isJumping = false;
+          this.velocityY = 0;
+        }
+      }
+
+      // Running animation: only when on ground & not game over
+      if (!this.isJumping && !isGameOver) {
+        if (timestamp - lastFrameChangeTime >= FRAME_DURATION) {
+          currentFrameIndex = (currentFrameIndex + 1) % FRAMES_PER_SPRITE;
+          lastFrameChangeTime = timestamp;
+        }
+      }
+    },
+
+    jump() {
+      if (!this.isJumping) {
+        this.isJumping = true;
+        this.velocityY = JUMP_VELOCITY;
+      }
+    },
+  };
+
+  // --- WHEN SPRITESHEET LOADS: COMPUTE FRAME SIZE + SCALE ---
+  rexyRunSheet.onload = () => {
+    console.log(
+      "Run sheet size:",
+      rexyRunSheet.naturalWidth,
+      "x",
+      rexyRunSheet.naturalHeight
+    );
+
+    // Split evenly into 2 frames
+    REXY_FRAME_WIDTH = rexyRunSheet.naturalWidth / FRAMES_PER_SPRITE;
+    REXY_FRAME_HEIGHT = rexyRunSheet.naturalHeight;
+
+    const scale = REXY_TARGET_HEIGHT / REXY_FRAME_HEIGHT;
+    REXY_DISPLAY_HEIGHT = Math.round(REXY_TARGET_HEIGHT);
+    REXY_DISPLAY_WIDTH = Math.round(REXY_FRAME_WIDTH * scale);
+
+    rexy.width = REXY_DISPLAY_WIDTH;
+    rexy.height = REXY_DISPLAY_HEIGHT;
+    rexy.y = CANVAS_HEIGHT - rexy.height - GROUND_OFFSET;
+  };
+
+  rexyRunSheet.onerror = () => {
+    console.error("❌ Failed to load /rexy-run-sheet.png");
+  };
+
+  // --- OBSTACLE CLASS ---
+  class Obstacle {
+    constructor(type) {
+      this.width = type.width * OBSTACLE_SCALE;
+      this.height = type.height * OBSTACLE_SCALE;
+      this.image = type.image;
+      this.x = CANVAS_WIDTH;
+      this.y = CANVAS_HEIGHT - this.height - GROUND_OFFSET;
+    }
+
+    draw() {
+      if (this.image.complete && this.image.naturalWidth > 0) {
+        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+      }
+    }
+
+    update() {
+      this.x -= speed;
+    }
+  }
+
+  // --- GAME LOGIC ---
+  function checkCollision(a, b) {
+    return (
+      a.x < b.x + b.width &&
+      a.x + a.width > b.x &&
+      a.y < b.y + b.height &&
+      a.y + a.height > b.y
+    );
+  }
+
+  function spawnObstacle() {
+    const cfg =
+      OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+    obstacles.push(new Obstacle(cfg));
+    lastObstacleTime = performance.now() + 1000 + Math.random() * 2000;
+  }
+
+  function drawScore() {
+    ctx.fillStyle = "#e2e8f0";
+    ctx.font = "14px monospace";
+    ctx.textAlign = "right";
+    ctx.fillText(`REX: ${Math.floor(score / 10)}`, SCORE_X_POSITION, 20);
+
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "12px monospace";
+    ctx.fillText(`BEST: ${Math.floor(highScore / 10)}`, SCORE_X_POSITION, 38);
+  }
+
+  function drawStartMessage() {
+    ctx.fillStyle = "#e2e8f0";
+    ctx.font = "18px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(
+      "Click or Press SPACE to Start",
+      CANVAS_WIDTH / 2,
+      CANVAS_HEIGHT / 2
+    );
+  }
+
+  function drawGameOver() {
+    ctx.fillStyle = "#f97373";
+    ctx.font = "26px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("GAME OVER", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 15);
+
+    ctx.fillStyle = "#cbd5f5";
+    ctx.font = "14px sans-serif";
+    ctx.fillText(
+      "Click or Press SPACE to Restart",
+      CANVAS_WIDTH / 2,
+      CANVAS_HEIGHT / 2 + 15
+    );
+  }
+
+  function startGame() {
+    score = 0;
+    speed = INITIAL_SPEED;
+    isGameOver = false;
+    gameStarted = true;
+    obstacles = [];
+    currentFrameIndex = 0;
+    lastFrameChangeTime = performance.now();
+
+    rexy.isJumping = false;
+    rexy.velocityY = 0;
+    rexy.y = CANVAS_HEIGHT - rexy.height - GROUND_OFFSET;
+
+    lastObstacleTime = performance.now() + 1500;
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  function gameLoop(timestamp) {
+    if (isGameOver) {
+      ctx.fillStyle = "#0b1824";
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      drawGameOver();
+      drawScore();
+      return;
+    }
+
+    ctx.fillStyle = "#0b1824";
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    rexy.update(timestamp);
+    rexy.draw();
+
+    if (timestamp > lastObstacleTime) {
+      spawnObstacle();
+    }
+
+    obstacles = obstacles.filter((o) => {
+      o.update();
+      o.draw();
+
+      if (checkCollision(rexy, o)) {
+        isGameOver = true;
+        if (score > highScore) highScore = score;
+      }
+
+      return o.x + o.width > 0;
+    });
+
+    score++;
+    speed += ACCELERATION_RATE;
+    drawScore();
+
+    ctx.strokeStyle = "#1f2933";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, CANVAS_HEIGHT - GROUND_OFFSET);
+    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_OFFSET);
+    ctx.stroke();
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // --- INPUT ---
+  function handleInput() {
+    if (!gameStarted || isGameOver) {
+      isGameOver = false;
+      startGame();
+    } else {
+      rexy.jump();
+    }
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "Space" || e.code === "Enter") {
+      e.preventDefault();
+      handleInput();
+    }
+  });
+
+  canvas.addEventListener("click", handleInput);
+
+  // initial message
+  drawStartMessage();
+</script>
+
+</body>
+</html>
