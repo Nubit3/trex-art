@@ -1,22 +1,25 @@
 import type { Metadata } from "next";
+import { Space_Grotesk, Inter } from "next/font/google"; // NEW FONTS
 import "./globals.css";
-import { Inter } from "next/font/google";
 
-const inter = Inter({ subsets: ["latin"] });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: '--font-space' });
+const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: "REXTOON — Where a Dino Becomes a Web3 Legend",
-  description: "Daily Web3 cartoon art from REXTOON.",
+  title: "REXTOON | Digital Artifacts",
+  description: "Web3 Art Gallery & Gaming Hub",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" className="scroll-smooth">
+      <body className={`${spaceGrotesk.variable} ${inter.variable} font-sans bg-[#050505] text-slate-200 antialiased selection:bg-cyan-500/30 selection:text-cyan-200`}>
+        {children}
+      </body>
     </html>
   );
 }

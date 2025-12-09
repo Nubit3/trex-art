@@ -2,391 +2,644 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rexy Runner Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Rexy Runner: Pro Edition</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
   <style>
-    body {
+    /* 1. RESET & FULL SCREEN SETUP */
+    html, body {
       margin: 0;
       padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0f172a; /* Dark Navy (Matches your website theme) */
+      font-family: 'Press Start 2P', cursive;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+
+    /* 2. THE GAME CONTAINER (The Monitor) */
+    #game-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      background-color: #0b1824;
-      overflow: hidden;
+      background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
     }
 
+    /* 3. THE CANVAS (The Screen) */
     canvas {
       display: block;
-      cursor: pointer;
-      outline: none;
-      border: 1px solid #666666;
-      border-radius: 6px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
-      background-color: #0b1824;
+      /* Maximize size but keep aspect ratio (prevent stretching) */
+      max-width: 100%;
+      max-height: 100%;
+      aspect-ratio: 800/250; 
+      width: auto;
+      height: auto;
+      
+      /* Professional Border & Shadow */
+      border: 4px solid #334155;
+      border-radius: 8px;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+      
+      image-rendering: pixelated; /* Crisp Pixels */
+      transition: opacity 0.5s ease;
     }
+
+    /* 4. CRT SCANLINE OVERLAY (Retro Effect) */
+    #scanlines {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(
+        to bottom,
+        rgba(255,255,255,0),
+        rgba(255,255,255,0) 50%,
+        rgba(0,0,0,0.1) 50%,
+        rgba(0,0,0,0.1)
+      );
+      background-size: 100% 4px;
+      pointer-events: none; /* Let clicks pass through */
+      z-index: 5;
+      opacity: 0.6;
+    }
+
+    /* 5. UI OVERLAYS (Pause / Ban) */
+    .overlay-screen {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 20;
+        backdrop-filter: blur(4px);
+    }
+    #pause-screen { background: rgba(0,0,0,0.6); color: white; }
+    #pause-text { font-size: clamp(16px, 4vw, 30px); line-height: 2; text-shadow: 2px 2px 0 #000; }
+    
+    #ban-screen { background: rgba(50, 0, 0, 0.9); color: #ff5555; border: 4px solid red; }
+    #ban-text { font-size: clamp(14px, 3vw, 24px); line-height: 1.5; }
+
   </style>
 </head>
 <body>
 
-<canvas id="rexyCanvas" width="600" height="150" tabindex="0"></canvas>
+<div id="game-container">
+    <div id="scanlines"></div>
+
+    <div id="pause-screen" class="overlay-screen">
+        <div id="pause-text">GAME PAUSED<br><span style="font-size: 0.6em; color: #ccc;">TAP TO RESUME</span></div>
+    </div>
+    
+    <div id="ban-screen" class="overlay-screen">
+        <div id="ban-text">
+            <h1 style="color:red; margin-bottom:20px;">SYSTEM ALERT</h1>
+            SUSPICIOUS ACTIVITY DETECTED.<br>ACCESS RESTRICTED.
+        </div>
+    </div>
+
+    <canvas id="rexyCanvas" width="800" height="250" tabindex="0"></canvas>
+</div>
 
 <script>
-  // --- GAME CONFIG ---
-  const CANVAS_WIDTH = 600;
-  const CANVAS_HEIGHT = 150;
-  const INITIAL_SPEED = 2.0;
-  const GRAVITY = 0.6;
-  const JUMP_VELOCITY = -10;
-  const ACCELERATION_RATE = 0.00015;
-  const GROUND_OFFSET = 4;
-  const SCORE_X_POSITION = CANVAS_WIDTH - 20;
+  // --- 0. SECURITY SYSTEM ---
+  const Security = {
+      startTime: 0,
+      inputTimestamps: [],
+      isBanned: false,
 
-  // --- CHROME DINO–STYLE ANIMATION CONFIG ---
-  const FRAMES_PER_SPRITE = 2;          // we still have 2 frames
-  const ANIMATION_FPS = 10;             // Dino-like run speed
-  const FRAME_DURATION = 1000 / ANIMATION_FPS; // ms per animation frame
+      checkBanStatus: () => {
+          if (localStorage.getItem('rexy_banned') === 'true') Security.triggerBan("Previous Ban Detected");
+      },
 
-  // --- CHARACTER SIZE ---
-  const REXY_TARGET_HEIGHT = 78;        // on-screen height in px
+      logInput: () => {
+          if (Security.isBanned) return;
+          const now = Date.now();
+          Security.inputTimestamps.push(now);
+          if (Security.inputTimestamps.length > 10) Security.inputTimestamps.shift();
+          
+          if (Security.inputTimestamps.length >= 10) {
+              const duration = Security.inputTimestamps[9] - Security.inputTimestamps[0];
+              if (duration < 300) Security.triggerBan("Macro/Bot Input Detected");
+          }
+      },
 
-  // These will be updated after spritesheet loads
-  let REXY_FRAME_WIDTH = 40;
-  let REXY_FRAME_HEIGHT = 45;
-  let REXY_DISPLAY_WIDTH = 40;
-  let REXY_DISPLAY_HEIGHT = REXY_TARGET_HEIGHT;
+      validateState: (currentDist) => {
+          if (Security.isBanned || Security.startTime === 0) return;
+          const elapsedSeconds = (Date.now() - Security.startTime) / 1000;
+          const maxPossibleDist = elapsedSeconds * 25; 
+          if (currentDist > maxPossibleDist + 100 && currentDist > 50) Security.triggerBan("Speed Hack Detected");
+      },
 
-  const OBSTACLE_SCALE = 0.5;
+      triggerBan: (reason) => {
+          console.error("SECURITY ALERT: " + reason);
+          Security.isBanned = true;
+          isGameOver = true;
+          gameStarted = false;
+          localStorage.setItem('rexy_banned', 'true'); 
+          const screen = document.getElementById('ban-screen');
+          screen.style.display = 'flex';
+          throw new Error("USER BANNED"); 
+      }
+  };
+  Security.checkBanStatus();
 
-  // --- ASSETS ---
-  const rexyRunSheet = new Image();
-  rexyRunSheet.src = "/rexy-run-sheet.png";   // 2-frame sheet (with extra space)
+  // --- 1. CONFIGURATION ---
+  const CANVAS_WIDTH = 800;
+  const CANVAS_HEIGHT = 250;
+  const GROUND_Y = 215;
+  const SHOW_HITBOXES = false; 
 
-  const rexyJumpImage = new Image();
-  rexyJumpImage.src = "/rexy-jump.png";
+  // --- 2. ASSETS ---
+  const assets = {
+    rexyRun:   { src: "rexy-run-sheet.png", img: new Image() },
+    rexyJump:  { src: "rexy-jump.png",      img: new Image() },
+    rexToken:  { src: "rex-token.png",      img: new Image() },
+    
+    elon:    { src: "elon.png",    img: new Image() },
+    trump:   { src: "trump.png",   img: new Image() },
+    cz:      { src: "cz.png",      img: new Image() },
+    vitalik: { src: "vitalik.png", img: new Image() },
 
-  const candleImage = new Image();
-  candleImage.src = "/obstacle-red-candle.png";
+    rocket:    { src: "rocket.png",    img: new Image() },
+    whale:     { src: "whale.png",     img: new Image() },
+    cloud:     { src: "cloud.png",     img: new Image() },
+    hammer:    { src: "hammer.png",    img: new Image() },
+    satellite: { src: "satellite.png", img: new Image() },
+    astronaut: { src: "astronaut.png", img: new Image() },
 
-  const gasFeeImage = new Image();
-  gasFeeImage.src = "/obstacle-gas-pump.png";
+    obstacles: [
+      { src: "wallet.png",       img: new Image(), w: 42, h: 36, type: 'ground' }, 
+      { src: "green-candle.png", img: new Image(), w: 24, h: 48, type: 'ground' }, 
+      { src: "bitcoin.png",      img: new Image(), w: 40, h: 40, type: 'ground' }, 
+      { src: "gas-pump.png",     img: new Image(), w: 46, h: 46, type: 'ground' }, 
+      { src: "red-candle.png",   img: new Image(), w: 24, h: 48, type: 'ground' }  
+    ]
+  };
 
-  const OBSTACLE_TYPES = [
-    { image: candleImage, width: 25, height: 40 },
-    { image: gasFeeImage, width: 30, height: 35 },
+  // --- 3. BIOMES ---
+  const biomes = [
+    { sky: [135, 206, 235], horizon: [210, 180, 140], ground: [244, 164, 96], detail: [199, 140, 83], line: [139, 69, 19], text: [51, 51, 51], starAlpha: 0.0, skyType: 'clouds' },
+    { sky: [10, 10, 42],    horizon: [0, 51, 0],      ground: [0, 77, 0],     detail: [0, 102, 0],    line: [0, 255, 0],    text: [255, 255, 255], starAlpha: 0.6, skyType: 'stars' },
+    { sky: [224, 247, 250], horizon: [178, 235, 242], ground: [255, 255, 255], detail: [167, 198, 207], line: [0, 172, 193],  text: [51, 51, 51],    starAlpha: 0.0, skyType: 'clouds' },
+    { sky: [34, 10, 10],    horizon: [51, 0, 0],      ground: [26, 26, 26],   detail: [68, 17, 17],   line: [255, 51, 0],   text: [255, 255, 255], starAlpha: 0.6, skyType: 'stars' }
   ];
+  let activePalette = JSON.parse(JSON.stringify(biomes[0]));
+  let currentBiomeIndex = 0;
 
+  // --- 4. AUDIO SYSTEM ---
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const sfx = {
+    playTone: (freq, type, duration) => {
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    },
+    jump: () => sfx.playTone(150, 'square', 0.1),
+    coin: () => sfx.playTone(1200, 'sine', 0.1),
+    crash: () => sfx.playTone(100, 'sawtooth', 0.5),
+    hurt: () => { sfx.playTone(80, 'sawtooth', 0.2); setTimeout(() => sfx.playTone(60, 'sawtooth', 0.3), 100); },
+    powerup: () => { sfx.playTone(400, 'square', 0.1); setTimeout(() => sfx.playTone(600, 'square', 0.2), 100); },
+    heal: () => { sfx.playTone(500, 'sine', 0.1); setTimeout(() => sfx.playTone(800, 'sine', 0.2), 100); },
+    tick: () => sfx.playTone(440, 'square', 0.1),
+    go: () => { sfx.playTone(880, 'square', 0.1); setTimeout(() => sfx.playTone(1200, 'square', 0.3), 100); }
+  };
+
+  // --- 5. LOADING ---
+  function startLoading() {
+      Object.values(assets).forEach(val => {
+          if(val.src) { val.img.src = val.src; }
+          else if (Array.isArray(val)) { val.forEach(obs => { obs.img.src = obs.src; }); }
+      });
+      initEnvironment();
+      requestAnimationFrame(animate);
+  }
+
+  // --- 6. GAME VARIABLES ---
   const canvas = document.getElementById("rexyCanvas");
   const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = false; // crisp pixels
+  ctx.imageSmoothingEnabled = false;
 
-  // --- GAME STATE ---
-  let score = 0;
-  let highScore = 0;
-  let speed = INITIAL_SPEED;
-  let isGameOver = false;
   let gameStarted = false;
+  let isGameOver = false;
+  let isPaused = false;
+  
+  let isCountingDown = false;
+  let countdownNum = 5;
+  let countdownTimer = 0;
+
+  let distance = 0; 
+  let rexCount = 0;
+  let lives = 5; 
+  let lastDamageFrame = -1000;
+  let heroPassCount = 0;
+  const HEROES_TO_HEAL = 3;
+
+  let activeMultiplier = 1;
+  let multiplierTimer = 0;
+  
+  // Relaxed Start Speed
+  let speed = 1.5; 
+  
   let obstacles = [];
-  let lastObstacleTime = 0;
+  let tokens = []; 
+  let frame = 0;
+  let nextObstacleFrame = 0; 
+  let nextTokenFrame = 0;
+  let lastObstacleIndex = -1;
 
-  let currentFrameIndex = 0;
-  let lastFrameChangeTime = 0; // ms timestamp of last frame change
+  let stars = [];
+  let clouds = [];
+  let horizonShapes = [];
+  let groundDetails = [];
 
-  // --- SPRITESHEET CROPPING CONFIG (IMPORTANT PART) ---
-  // You said there is extra space in the sheet.
-  // So we will explicitly tell the code where each frame is.
-  //
-  // Change ONLY these numbers to match your PNG:
-  // - frameWidth:  width of one Rexy frame (without empty space)
-  // - frameHeight: height of Rexy
-  // - frameGap:    horizontal gap between frame0 and frame1 (inside sheet)
-  // - offsetX:     left padding before first frame starts
-  // - offsetY:     top padding before frames start
-  const SPRITE_CONFIG = {
-    frameWidth: 48,   // <--- PUT YOUR FRAME WIDTH HERE
-    frameHeight: 54,  // <--- PUT YOUR FRAME HEIGHT HERE
-    frameGap: 8,      // <--- GAP between frame 0 and frame 1 (0 if none)
-    offsetX: 0,       // <--- Left padding before first frame starts
-    offsetY: 0        // <--- Top padding
-  };
-
-  // --- REXY OBJECT ---
+  // Rex Object
   const rexy = {
-    x: 60,
-    y: CANVAS_HEIGHT - REXY_DISPLAY_HEIGHT - GROUND_OFFSET,
-    width: REXY_DISPLAY_WIDTH,
-    height: REXY_DISPLAY_HEIGHT,
-    velocityY: 0,
-    isJumping: false,
-
-    draw() {
-      const sheetLoaded = rexyRunSheet.complete && rexyRunSheet.naturalWidth > 0;
-      const jumpLoaded = rexyJumpImage.complete && rexyJumpImage.naturalWidth > 0;
-
-      const drawWidth = this.width;
-      const drawHeight = this.height;
-
-      if (this.isJumping || isGameOver) {
-        // Jump pose (scaled same as running)
-        if (jumpLoaded) {
-          ctx.drawImage(
-            rexyJumpImage,
-            this.x,
-            this.y,
-            drawWidth,
-            drawHeight
-          );
-        } else {
-          ctx.fillStyle = "#34d399";
-          ctx.fillRect(this.x, this.y, drawWidth, drawHeight);
-        }
-      } else if (sheetLoaded) {
-        // Chrome Dino–style 2-frame run animation
-        const {
-          frameWidth,
-          frameHeight,
-          frameGap,
-          offsetX,
-          offsetY
-        } = SPRITE_CONFIG;
-
-        // sx jumps over frameWidth + gap for each frame
-        const sx = offsetX + currentFrameIndex * (frameWidth + frameGap);
-        const sy = offsetY;
-
-        ctx.drawImage(
-          rexyRunSheet,
-          sx, sy,
-          frameWidth, frameHeight,
-          this.x, this.y,
-          drawWidth, drawHeight
-        );
-      } else {
-        ctx.fillStyle = "#34d399";
-        ctx.fillRect(this.x, this.y, drawWidth, drawHeight);
-      }
-
-      // Debug: draw a red box around Rexy
-      // (uncomment if you want to check bounds)
-      // ctx.strokeStyle = "red";
-      // ctx.strokeRect(this.x, this.y, drawWidth, drawHeight);
-    },
-
-    update(timestamp) {
-      // Jump physics
-      if (this.isJumping) {
-        this.y += this.velocityY;
-        this.velocityY += GRAVITY;
-
-        if (this.y >= CANVAS_HEIGHT - this.height - GROUND_OFFSET) {
-          this.y = CANVAS_HEIGHT - this.height - GROUND_OFFSET;
-          this.isJumping = false;
-          this.velocityY = 0;
-        }
-      }
-
-      // Running animation: only when on ground & not game over
-      if (!this.isJumping && !isGameOver) {
-        if (timestamp - lastFrameChangeTime >= FRAME_DURATION) {
-          currentFrameIndex = (currentFrameIndex + 1) % FRAMES_PER_SPRITE;
-          lastFrameChangeTime = timestamp;
-        }
-      }
-    },
-
-    jump() {
-      if (!this.isJumping) {
-        this.isJumping = true;
-        this.velocityY = JUMP_VELOCITY;
-      }
-    },
-  };
-
-  // --- WHEN SPRITESHEET LOADS: USE OUR CONFIG (IGNORE EXTRA SPACE) ---
-  rexyRunSheet.onload = () => {
-    console.log(
-      "Run sheet size:",
-      rexyRunSheet.naturalWidth,
-      "x",
-      rexyRunSheet.naturalHeight
-    );
-
-    REXY_FRAME_WIDTH = SPRITE_CONFIG.frameWidth;
-    REXY_FRAME_HEIGHT = SPRITE_CONFIG.frameHeight;
-
-    const scale = REXY_TARGET_HEIGHT / REXY_FRAME_HEIGHT;
-    REXY_DISPLAY_HEIGHT = Math.round(REXY_TARGET_HEIGHT);
-    REXY_DISPLAY_WIDTH = Math.round(REXY_FRAME_WIDTH * scale);
-
-    rexy.width = REXY_DISPLAY_WIDTH;
-    rexy.height = REXY_DISPLAY_HEIGHT;
-    rexy.y = CANVAS_HEIGHT - rexy.height - GROUND_OFFSET;
-  };
-
-  rexyRunSheet.onerror = () => {
-    console.error("❌ Failed to load /rexy-run-sheet.png");
-  };
-
-  // --- OBSTACLE CLASS ---
-  class Obstacle {
-    constructor(type) {
-      this.width = type.width * OBSTACLE_SCALE;
-      this.height = type.height * OBSTACLE_SCALE;
-      this.image = type.image;
-      this.x = CANVAS_WIDTH;
-      this.y = CANVAS_HEIGHT - this.height - GROUND_OFFSET;
-    }
-
-    draw() {
-      if (this.image.complete && this.image.naturalWidth > 0) {
-        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
-      }
-    }
-
+    x: 50, y: 0, w: 44, h: 44, vy: 0, isJumping: false, isDucking: false,
     update() {
-      this.x -= speed;
+      if (this.isDucking && !this.isJumping) {
+          this.h = 25; this.y = GROUND_Y - 25;
+      } else {
+          this.h = 44; 
+          this.y += this.vy;
+          if (this.y < GROUND_Y - this.h) {
+            this.vy += 0.6; this.isJumping = true;
+          } else {
+            this.y = GROUND_Y - this.h; this.vy = 0; this.isJumping = false;
+          }
+      }
+    },
+    draw() {
+      ctx.imageSmoothingEnabled = false;
+      if (frame - lastDamageFrame < 120) { if (Math.floor(frame / 10) % 2 === 0) return; }
+
+      let sprite = assets.rexyRun.img;
+      if (this.isJumping) sprite = assets.rexyJump.img;
+
+      if(activeMultiplier > 1) {
+          ctx.save(); ctx.shadowColor = "#FFD700"; ctx.shadowBlur = 20;
+      }
+
+      if (sprite.complete && sprite.naturalWidth > 0) {
+         if(this.isDucking) {
+             const frameW = sprite.naturalWidth / 2;
+             ctx.drawImage(sprite, 0, 0, frameW, sprite.naturalHeight, Math.floor(this.x), Math.floor(this.y), this.w, 25);
+         } else if (this.isJumping) {
+             ctx.drawImage(sprite, Math.floor(this.x), Math.floor(this.y), this.w, this.h);
+         } else {
+             const frameW = sprite.naturalWidth / 2;
+             const animSpeed = Math.max(10, Math.floor(60 / speed));
+             const currentFrame = (isCountingDown) ? 0 : Math.floor(frame / animSpeed) % 2; 
+             ctx.drawImage(sprite, currentFrame * frameW, 0, frameW, sprite.naturalHeight, Math.floor(this.x), Math.floor(this.y), this.w, this.h);
+         }
+      } else {
+         ctx.fillStyle = "#34d399"; ctx.fillRect(this.x, this.y, this.w, this.h);
+      }
+      if(activeMultiplier > 1) ctx.restore();
     }
+  };
+
+  // --- 7. ENVIRONMENT ---
+  function initEnvironment() {
+    stars = []; clouds = []; horizonShapes = []; groundDetails = [];
+    for(let i=0; i<40; i++) stars.push({ x: Math.random()*CANVAS_WIDTH, y: Math.random()*(CANVAS_HEIGHT-80), size: Math.random()*2, speed: Math.random()*0.2+0.1 });
+    for(let i=0; i<8; i++) clouds.push({ x: Math.random()*CANVAS_WIDTH, y: Math.random()*100, w: 40+Math.random()*40, h: 15+Math.random()*10, speed: Math.random()*0.3+0.2 });
+    for(let i=0; i<10; i++) horizonShapes.push({ x: i*100, w: 80+Math.random()*40, h: 30+Math.random()*30 });
+    for(let i=0; i<30; i++) groundDetails.push({ x: Math.random()*CANVAS_WIDTH, y: GROUND_Y + Math.random()*(CANVAS_HEIGHT-GROUND_Y), size: Math.random()*3+1 });
   }
 
-  // --- GAME LOGIC ---
-  function checkCollision(a, b) {
-    return (
-      a.x < b.x + b.width &&
-      a.x + a.width > b.x &&
-      a.y < b.y + b.height &&
-      a.y + a.height > b.y
-    );
+  function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
+  function lerpColorArr(current, target) {
+      const speed = 0.02; 
+      current[0] = lerp(current[0], target[0], speed); current[1] = lerp(current[1], target[1], speed); current[2] = lerp(current[2], target[2], speed);
+      return `rgb(${Math.round(current[0])}, ${Math.round(current[1])}, ${Math.round(current[2])})`;
   }
 
+  function updateBiomeAndColors() {
+      const phase = Math.floor(distance / 200) % biomes.length;
+      const target = biomes[phase];
+      const bgString = lerpColorArr(activePalette.sky, target.sky);
+      const groundString = lerpColorArr(activePalette.ground, target.ground);
+      const horizonString = lerpColorArr(activePalette.horizon, target.horizon);
+      const detailString = lerpColorArr(activePalette.detail, target.detail);
+      const lineString = lerpColorArr(activePalette.line, target.line);
+      const textString = lerpColorArr(activePalette.text, target.text);
+      activePalette.starAlpha = lerp(activePalette.starAlpha, target.starAlpha, 0.02);
+      
+      // Removed body.style background setting to let canvas handle it cleanly
+      return { bgString, groundString, horizonString, detailString, lineString, textString };
+  }
+
+  function drawEnvironment(colors) {
+    if (activePalette.starAlpha > 0.01) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${activePalette.starAlpha})`;
+        stars.forEach(s => { ctx.fillRect(Math.floor(s.x), Math.floor(s.y), s.size, s.size); if(gameStarted && !isPaused) s.x -= s.speed; if(s.x < 0) s.x = CANVAS_WIDTH; });
+    }
+    if (activePalette.starAlpha < 0.5) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.6 - activePalette.starAlpha})`; 
+        clouds.forEach(c => { ctx.fillRect(Math.floor(c.x), Math.floor(c.y), c.w, c.h); ctx.fillRect(Math.floor(c.x+10), Math.floor(c.y-10), c.w-20, c.h); if(gameStarted && !isPaused) c.x -= c.speed; if(c.x + c.w < 0) c.x = CANVAS_WIDTH; });
+    }
+    ctx.fillStyle = colors.horizonString;
+    horizonShapes.forEach(h => { ctx.beginPath(); ctx.moveTo(h.x, GROUND_Y); ctx.lineTo(h.x + h.w/2, GROUND_Y - h.h); ctx.lineTo(h.x + h.w, GROUND_Y); ctx.fill(); if(gameStarted && !isPaused) h.x -= speed * 0.5; if(h.x + h.w < 0) h.x = CANVAS_WIDTH; });
+    ctx.fillStyle = colors.groundString; ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+    ctx.fillStyle = colors.detailString;
+    groundDetails.forEach(d => { ctx.fillRect(Math.floor(d.x), Math.floor(d.y), d.size, d.size); if(gameStarted && !isPaused) d.x -= speed; if(d.x < 0) d.x = CANVAS_WIDTH; });
+    ctx.strokeStyle = colors.lineString; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(CANVAS_WIDTH, GROUND_Y); ctx.stroke();
+  }
+
+  function drawUI(colors) {
+      ctx.font = "12px 'Press Start 2P', cursive"; 
+      const uiX = CANVAS_WIDTH - 20;
+      const uiY = 30;
+      
+      // Lives
+      ctx.fillStyle = "#ff4444"; 
+      ctx.textAlign = "left";
+      let hearts = "";
+      for(let i=0; i<lives; i++) hearts += "❤";
+      ctx.fillText(hearts, 20, uiY);
+
+      // Hero Pool
+      ctx.font = "10px 'Press Start 2P'";
+      ctx.fillStyle = colors.textString;
+      ctx.fillText(`HERO POOL: ${heroPassCount}/${HEROES_TO_HEAL}`, 20, uiY + 20);
+
+      // Score
+      ctx.font = "12px 'Press Start 2P'";
+      const rexText = "$REX: " + Math.floor(rexCount);
+      ctx.save();
+      if(activeMultiplier > 1) {
+         ctx.fillStyle = "#00ff00"; 
+         ctx.textAlign = "right";
+         ctx.fillText(activeMultiplier + "X BOOST!", uiX - 250, uiY);
+      }
+      ctx.fillStyle = "#FFD700"; 
+      ctx.textAlign = "right";
+      ctx.fillText(rexText, uiX - 30, uiY); 
+      if (assets.rexToken.img.complete) ctx.drawImage(assets.rexToken.img, uiX - 25, uiY - 14, 20, 20); 
+      ctx.restore();
+
+      // Distance
+      ctx.fillStyle = colors.textString;
+      ctx.textAlign = "right";
+      ctx.fillText("DIST: " + Math.floor(distance) + "m", uiX, uiY + 25);
+  }
+
+  // --- 8. SPAWNERS ---
   function spawnObstacle() {
-    const cfg =
-      OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
-    obstacles.push(new Obstacle(cfg));
-    lastObstacleTime = performance.now() + 1000 + Math.random() * 2000;
+    const r = Math.random();
+    if (r > 0.90) {
+        const heroRoll = Math.random();
+        let heroType = 'vitalik'; let mult = 2; let img = assets.vitalik.img;
+        if (heroRoll > 0.85) { heroType = 'elon'; mult = 5; img = assets.elon.img; }
+        else if (heroRoll > 0.60) { heroType = 'trump'; mult = 4; img = assets.trump.img; }
+        else if (heroRoll > 0.35) { heroType = 'cz'; mult = 3; img = assets.cz.img; }
+        obstacles.push({ x: CANVAS_WIDTH, y: GROUND_Y - 44, w: 40, h: 44, img: img, type: 'hero', multiplier: mult, passed: false });
+        return;
+    }
+    if (r > 0.65) {
+        const skyRoll = Math.random();
+        let skyType = 'rocket'; let skyImg = assets.rocket.img; let movement = 'sine'; let yPos = GROUND_Y - 90;
+        if (skyRoll < 0.16) { skyType = 'rocket'; skyImg = assets.rocket.img; movement = 'sine'; yPos = GROUND_Y - 90; }
+        else if (skyRoll < 0.32) { skyType = 'whale'; skyImg = assets.whale.img; movement = 'slow_sine'; yPos = GROUND_Y - 110; } 
+        else if (skyRoll < 0.48) { skyType = 'cloud'; skyImg = assets.cloud.img; movement = 'jitter'; yPos = GROUND_Y - 100; } 
+        else if (skyRoll < 0.64) { skyType = 'hammer'; skyImg = assets.hammer.img; movement = 'aggressive'; yPos = GROUND_Y - 80; } 
+        else if (skyRoll < 0.80) { skyType = 'satellite'; skyImg = assets.satellite.img; movement = 'smooth'; yPos = GROUND_Y - 120; } 
+        else { skyType = 'astronaut'; skyImg = assets.astronaut.img; movement = 'drift'; yPos = GROUND_Y - 95; }
+        obstacles.push({ x: CANVAS_WIDTH, y: yPos, w: 60, h: 36, img: skyImg, type: 'flying', movementType: movement, baseY: yPos, hoverOffset: Math.random() * 100 });
+        return;
+    }
+    let idx = Math.floor(Math.random() * assets.obstacles.length);
+    if(idx === lastObstacleIndex) idx = Math.floor(Math.random() * assets.obstacles.length);
+    lastObstacleIndex = idx;
+    const template = assets.obstacles[idx];
+    obstacles.push({ x: CANVAS_WIDTH, y: GROUND_Y - template.h, w: template.w, h: template.h, img: template.img, type: 'ground' });
   }
 
-  function drawScore() {
-    ctx.fillStyle = "#e2e8f0";
-    ctx.font = "14px monospace";
-    ctx.textAlign = "right";
-    ctx.fillText(`REX: ${Math.floor(score / 10)}`, SCORE_X_POSITION, 20);
-
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "12px monospace";
-    ctx.fillText(`BEST: ${Math.floor(highScore / 10)}`, SCORE_X_POSITION, 38);
+  function spawnToken() {
+    const safetyDistance = 250; 
+    const isUnsafe = obstacles.some(obs => obs.x > CANVAS_WIDTH - safetyDistance);
+    if (isUnsafe) { nextTokenFrame += 20; return; }
+    const heightVar = Math.random() > 0.5 ? 40 : 80; 
+    tokens.push({ x: CANVAS_WIDTH, y: GROUND_Y - heightVar, w: 34, h: 34, collected: false });
   }
 
-  function drawStartMessage() {
-    ctx.fillStyle = "#e2e8f0";
-    ctx.font = "18px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(
-      "Click or Press SPACE to Start",
-      CANVAS_WIDTH / 2,
-      CANVAS_HEIGHT / 2
-    );
+  // --- 9. MAIN LOOP ---
+  function startCountdown() {
+      isCountingDown = true;
+      countdownNum = 5;
+      countdownTimer = performance.now();
+      sfx.tick();
+      rexy.y = GROUND_Y - rexy.h; 
+      requestAnimationFrame(animate);
   }
 
-  function drawGameOver() {
-    ctx.fillStyle = "#f97373";
-    ctx.font = "26px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("GAME OVER", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 15);
+  function animate() {
+    if (Security.isBanned) return; 
+    if (frame % 60 === 0) Security.validateState(distance);
+    if (isPaused) { requestAnimationFrame(animate); return; }
 
-    ctx.fillStyle = "#cbd5f5";
-    ctx.font = "14px sans-serif";
-    ctx.fillText(
-      "Click or Press SPACE to Restart",
-      CANVAS_WIDTH / 2,
-      CANVAS_HEIGHT / 2 + 15
-    );
-  }
+    const colors = updateBiomeAndColors();
+    ctx.fillStyle = colors.bgString;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    drawEnvironment(colors);
 
-  function startGame() {
-    score = 0;
-    speed = INITIAL_SPEED;
-    isGameOver = false;
-    gameStarted = true;
-    obstacles = [];
-    currentFrameIndex = 0;
-    lastFrameChangeTime = performance.now();
+    if (isCountingDown) {
+        drawUI(colors);
+        rexy.draw();
+        ctx.fillStyle = "#FFD700";
+        ctx.font = "bold 60px 'Press Start 2P'";
+        ctx.textAlign = "center";
+        ctx.fillText(countdownNum > 0 ? countdownNum : "GO!", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
+        if (performance.now() - countdownTimer > 1000) {
+            countdownNum--;
+            countdownTimer = performance.now();
+            if (countdownNum > 0) sfx.tick();
+            else if (countdownNum === 0) sfx.go();
+            else { isCountingDown = false; gameStarted = true; Security.startTime = Date.now(); }
+        }
+        requestAnimationFrame(animate);
+        return;
+    }
 
-    rexy.isJumping = false;
-    rexy.velocityY = 0;
-    rexy.y = CANVAS_HEIGHT - rexy.height - GROUND_OFFSET;
-
-    lastObstacleTime = performance.now() + 1500;
-
-    requestAnimationFrame(gameLoop);
-  }
-
-  function gameLoop(timestamp) {
-    if (isGameOver) {
-      ctx.fillStyle = "#0b1824";
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-      drawGameOver();
-      drawScore();
+    if (!gameStarted) {
+      drawUI(colors);
+      ctx.textAlign = "center";
+      ctx.font = "20px 'Press Start 2P'";
+      ctx.fillStyle = "#34d399";
+      ctx.fillText("REXY RUNNER", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 30);
+      if (Math.floor(Date.now() / 500) % 2 === 0) {
+          ctx.font = "12px 'Press Start 2P'";
+          ctx.fillStyle = colors.textString;
+          ctx.fillText("PRESS SPACE OR TAP TO START", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
+      }
+      rexy.y = GROUND_Y - rexy.h; rexy.draw();
+      requestAnimationFrame(animate);
       return;
     }
 
-    ctx.fillStyle = "#0b1824";
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    if (activeMultiplier > 1 && frame > multiplierTimer) activeMultiplier = 1;
 
-    rexy.update(timestamp);
+    rexy.update();
     rexy.draw();
 
-    if (timestamp > lastObstacleTime) {
+    if (frame >= nextObstacleFrame) {
       spawnObstacle();
+      const minGap = Math.floor(220 / speed); 
+      nextObstacleFrame = frame + minGap + Math.floor(Math.random() * 80);
+    }
+    if (frame >= nextTokenFrame) {
+      spawnToken();
+      nextTokenFrame = frame + 50 + Math.floor(Math.random() * 100);
     }
 
-    obstacles = obstacles.filter((o) => {
-      o.update();
-      o.draw();
+    obstacles = obstacles.filter(obs => obs.x + obs.w > -100);
+    obstacles.forEach((obs, index) => {
+        obs.x -= speed;
+        let drawY = obs.y;
+        if(obs.type === 'flying') {
+            const t = (frame + obs.hoverOffset) * 0.05;
+            if (obs.movementType === 'sine') drawY = obs.baseY + Math.sin(t) * 10;
+            else if (obs.movementType === 'slow_sine') drawY = obs.baseY + Math.sin(t*0.5) * 15;
+            else if (obs.movementType === 'jitter') drawY = obs.baseY + (Math.random() * 4 - 2);
+            else if (obs.movementType === 'aggressive') drawY = obs.baseY + Math.sin(t*2) * 5;
+            else if (obs.movementType === 'drift') drawY = obs.baseY + Math.cos(t*0.2) * 20;
+            else drawY = obs.baseY + Math.sin(t) * 5;
+        }
 
-      if (checkCollision(rexy, o)) {
-        isGameOver = true;
-        if (score > highScore) highScore = score;
-      }
+        if(obs.img.complete && obs.img.naturalWidth > 0) {
+            ctx.drawImage(obs.img, Math.floor(obs.x), Math.floor(drawY), obs.w, obs.h);
+        } else { 
+            ctx.fillStyle = "red"; ctx.fillRect(Math.floor(obs.x), Math.floor(drawY), obs.w, obs.h); 
+        }
 
-      return o.x + o.width > 0;
+        let isInvincible = (frame - lastDamageFrame < 120);
+        
+        let rexHitX = rexy.x + 14; 
+        let rexHitW = rexy.w - 28; 
+        let rexHitY = rexy.y + 10;
+        let rexHitH = rexy.h - 20; 
+
+        if(rexy.isDucking && !rexy.isJumping) { rexHitY = rexy.y + 10; rexHitH = 15; }
+        let obsHitX = obs.x + 8; let obsHitW = obs.w - 16; let obsHitY = drawY + 10; let obsHitH = obs.h - 10;
+
+        if (rexHitX < obsHitX + obsHitW && rexHitX + rexHitW > obsHitX && rexHitY < obsHitY + obsHitH && rexHitY + rexHitH > obsHitY) {
+            if (obs.type === 'hero' && !obs.passed) {
+               if(!isInvincible) handleCrash(index);
+            } else if (!isInvincible) {
+               handleCrash(index);
+            }
+        }
+
+        if (obs.type === 'hero' && !obs.passed && obs.x + obs.w < rexy.x) {
+            obs.passed = true; activeMultiplier = obs.multiplier; multiplierTimer = frame + 600; 
+            heroPassCount++;
+            if (heroPassCount >= HEROES_TO_HEAL) {
+                heroPassCount = 0; 
+                if(lives < 5) { lives++; sfx.heal(); } else { sfx.powerup(); }
+            } else { sfx.powerup(); }
+        }
     });
 
-    score++;
-    speed += ACCELERATION_RATE;
-    drawScore();
+    tokens = tokens.filter(t => t.x + t.w > -100 && !t.collected);
+    tokens.forEach(t => {
+        t.x -= speed;
+        const pulse = Math.sin(frame * 0.2) * 2; 
+        ctx.save();
+        if (assets.rexToken.img.complete) ctx.drawImage(assets.rexToken.img, Math.floor(t.x - pulse/2), Math.floor(t.y - pulse/2), t.w + pulse, t.h + pulse);
+        else { ctx.fillStyle = "#ffd700"; ctx.beginPath(); ctx.arc(t.x + 15, t.y + 15, 15 + pulse/2, 0, Math.PI*2); ctx.fill(); }
+        ctx.restore();
+        if (rexy.x < t.x + t.w && rexy.x + rexy.w > t.x && rexy.y < t.y + t.h && rexy.y + rexy.h > t.y) {
+            t.collected = true; rexCount += 1 * activeMultiplier; sfx.coin();
+        }
+    });
 
-    ctx.strokeStyle = "#1f2933";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, CANVAS_HEIGHT - GROUND_OFFSET);
-    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_OFFSET);
-    ctx.stroke();
+    drawUI(colors);
 
-    requestAnimationFrame(gameLoop);
+    if (!isGameOver) {
+      distance += 0.1; 
+      frame++; 
+      if (speed < 12) speed += 0.00005; 
+      requestAnimationFrame(animate);
+    } else {
+      ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.fillStyle = "white"; ctx.textAlign = "center";
+      ctx.font = "20px 'Press Start 2P'";
+      ctx.fillText("GAME OVER", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 20);
+      ctx.font = "10px 'Press Start 2P'";
+      ctx.fillText("COLLECTED " + Math.floor(rexCount) + " $REX", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 20);
+      ctx.fillText("TAP OR SPACE TO RESTART", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 50);
+    }
   }
 
-  // --- INPUT ---
-  function handleInput() {
-    if (!gameStarted || isGameOver) {
-      isGameOver = false;
-      startGame();
-    } else {
-      rexy.jump();
+  function handleCrash(obsIndex) {
+      lives--; sfx.hurt(); lastDamageFrame = frame; obstacles.splice(obsIndex, 1); 
+      if (lives <= 0) { isGameOver = true; sfx.crash(); }
+  }
+
+  function togglePause() {
+      if(!gameStarted || isGameOver || isCountingDown) return;
+      isPaused = !isPaused;
+      document.getElementById("pause-screen").style.display = isPaused ? 'flex' : 'none';
+      if(!isPaused) requestAnimationFrame(animate);
+  }
+
+  function handleInput(type) {
+    if (isPaused && type !== 'PAUSE') { togglePause(); return; }
+    Security.logInput();
+
+    if (!gameStarted && !isCountingDown) {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        startCountdown(); return;
     }
+    if (isCountingDown) return; 
+
+    if (isGameOver) {
+        isGameOver = false; obstacles = []; tokens = []; distance = 0; rexCount = 0; speed = 1.5; lives = 5;
+        currentBiomeIndex = 0; rexy.y = GROUND_Y - rexy.h; nextObstacleFrame = frame + 100; activeMultiplier = 1; heroPassCount = 0;
+        startCountdown(); return;
+    }
+    if (type === 'JUMP') { 
+        if (!rexy.isJumping && !rexy.isDucking) { rexy.vy = -13.5; sfx.jump(); } 
+    }
+    if (type === 'DUCK_START') rexy.isDucking = true;
+    if (type === 'DUCK_END') rexy.isDucking = false;
   }
 
   window.addEventListener("keydown", (e) => {
-    if (e.code === "Space" || e.code === "Enter") {
-      e.preventDefault();
-      handleInput();
-    }
+      if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); handleInput('JUMP'); }
+      if (e.code === "ArrowDown") { e.preventDefault(); handleInput('DUCK_START'); }
+      if (e.code === "KeyP") togglePause();
+  });
+  window.addEventListener("keyup", (e) => { if (e.code === "ArrowDown") handleInput('DUCK_END'); });
+  
+  const gameDiv = document.getElementById("game-container");
+  gameDiv.addEventListener("mousedown", (e) => { e.preventDefault(); handleInput('JUMP'); });
+  gameDiv.addEventListener("touchstart", (e) => { e.preventDefault(); handleInput('JUMP'); }, {passive: false});
+  document.getElementById("pause-screen").addEventListener("click", togglePause);
+
+  window.addEventListener("resize", () => {
+      if(gameStarted && !isGameOver && !isPaused && !isCountingDown) togglePause();
   });
 
-  canvas.addEventListener("click", handleInput);
+  // START
+  startLoading();
 
-  // initial message
-  drawStartMessage();
 </script>
-
 </body>
 </html>

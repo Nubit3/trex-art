@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rexy Runner: Day & Night</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #bae6fd; /* Start Light Blue */
+      font-family: 'Press Start 2P', cursive;
+      overflow: hidden;
+      user-select: none;
+      /* Smooth Color Transition (3 seconds) */
+      transition: background-color 3s ease; 
+    }
+    canvas {
+      display: block;
+      border: 4px solid #333;
+      background-color: #bae6fd; /* Start Light Blue */
+      box-shadow: 0 0 30px rgba(0,0,0,0.5);
+      image-rendering: pixelated; 
+      /* Smooth Canvas Color Transition */
+      transition: background-color 3s ease; 
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="rexyCanvas" width="800" height="250" tabindex="0"></canvas>
+
+<script>
+  // --- 1. CONFIGURATION ---
+  const CANVAS_WIDTH = 800;
+  const CANVAS_HEIGHT = 250;
+  const GROUND_Y = 215;
+  const SHOW_HITBOXES = false; // Set to true for debugging
+
+  // --- 2. ASSETS ---
+  const assets = {
+    rexyRun:   { src: "rexy-run-sheet.png", img: new Image() },
+    rexyJump:  { src: "rexy-jump.png",      img: new Image() },
+    rexToken:  { src: "rex-token.png",      img: new Image() },
+    rocket:    { src: "rocket.png",         img: new Image() },
+    
+    obstacles: [
+      { src: "wallet.png",       img: new Image(), w: 42, h: 36, type: 'ground' }, 
+      { src: "green-candle.png", img: new Image(), w: 24, h: 48, type: 'ground' }, 
+      { src: "bitcoin.png",      img: new Image(), w: 40, h: 40, type: 'ground' }, 
+      { src: "gas-pump.png",     img: new Image(), w: 46, h: 46, type: 'ground' }, 
+      { src: "red-candle.png",   img: new Image(), w: 24, h: 48, type: 'ground' }  
+    ]
+  };
+
+  // --- 3. BIOMES (Light Start -> Dark -> Red -> Green) ---
+  const biomes = [
+    // 0. Day Trading (Light Mode)
+    { 
+      bg: "#bae6fd",      // CSS Body BG (Sky Blue)
+      canvas: "#bae6fd",  // Canvas BG
+      ground: "#e0f2fe",  // Ground Color (Very Light Blue)
+      line: "#0ea5e9",    // Line Color (Darker Blue)
+      text: "#0f172a",    // Text Color (Dark Navy - visible on light bg)
+      star: "rgba(255,255,255,0)" // Invisible stars during day
+    },
+    // 1. Deep Space (Dark Mode)
+    { 
+      bg: "#1e1e2e", 
+      canvas: "#151520", 
+      ground: "#282840", 
+      line: "#404060",
+      text: "#ffffff",    // White text
+      star: "rgba(255,255,255,0.2)" 
+    },
+    // 2. Bear Market (Red Mode)
+    { 
+      bg: "#261010", 
+      canvas: "#1a0a0a", 
+      ground: "#3d1f1f", 
+      line: "#5e2f2f",
+      text: "#ffffff",
+      star: "rgba(255,100,100,0.2)"
+    },
+    // 3. Bull Run (Green Mode)
+    { 
+      bg: "#062920", 
+      canvas: "#031712", 
+      ground: "#0f4233", 
+      line: "#186b52",
+      text: "#ffffff",
+      star: "rgba(100,255,100,0.2)"
+    } 
+  ];
+  let currentBiomeIndex = 0;
+
+  // --- 4. AUDIO SYSTEM ---
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const sfx = {
+    playTone: (freq, type, duration) => {
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    },
+    jump: () => sfx.playTone(150, 'square', 0.1),
+    coin: () => { sfx.playTone(1200, 'sine', 0.1); setTimeout(() => sfx.playTone(1800, 'sine', 0.2), 50); }, 
+    crash: () => sfx.playTone(100, 'sawtooth', 0.5)
+  };
+
+  // --- 5. LOADING ---
+  let imagesLoaded = 0;
+  const totalImages = 4 + assets.obstacles.length; 
+
+  function handleImageLoad() {
+    imagesLoaded++;
+    if (imagesLoaded === totalImages) {
+      console.log("System Ready.");
+      initStars(); 
+      document.fonts.load('10pt "Press Start 2P"').then(() => {
+          requestAnimationFrame(animate);
+      });
+    }
+  }
+
+  [assets.rexyRun, assets.rexyJump, assets.rexToken, assets.rocket].forEach(a => {
+      a.img.onload = handleImageLoad; a.img.onerror = handleImageLoad; a.img.src = a.src;
+  });
+  assets.obstacles.forEach(obs => {
+      obs.img.onload = handleImageLoad; obs.img.onerror = handleImageLoad; obs.img.src = obs.src;
+  });
+
+  // --- 6. GAME VARIABLES ---
+  const canvas = document.getElementById("rexyCanvas");
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+
+  let gameStarted = false;
+  let isGameOver = false;
+  let distance = 0; 
+  let rexCount = 0;
+  let speed = 2.5; 
+  let obstacles = [];
+  let tokens = []; 
+  let frame = 0;
+  let nextObstacleFrame = 0; 
+  let nextTokenFrame = 0;
+  let lastObstacleIndex = -1;
+
+  let stars = [];
+  let groundOffset = 0;
+
+  // Rex Object
+  const rexy = {
+    x: 50, y: 0, w: 44, h: 44, vy: 0, isJumping: false, isDucking: false,
+    update() {
+      if (this.isDucking && !this.isJumping) {
+          this.h = 25; this.y = GROUND_Y - 25;
+      } else {
+          this.h = 44; 
+          this.y += this.vy;
+          if (this.y < GROUND_Y - this.h) {
+            this.vy += 0.6; this.isJumping = true;
+          } else {
+            this.y = GROUND_Y - this.h; this.vy = 0; this.isJumping = false;
+          }
+      }
+    },
+    draw() {
+      ctx.imageSmoothingEnabled = false;
+      if (this.isDucking && !this.isJumping) {
+           const sheet = assets.rexyRun.img;
+           if (sheet.complete) {
+             const frameW = sheet.naturalWidth / 2;
+             ctx.drawImage(sheet, 0, 0, frameW, sheet.naturalHeight, Math.floor(this.x), Math.floor(this.y), this.w, 25);
+           } 
+           return;
+      }
+      if (this.isJumping) {
+        if (assets.rexyJump.img.complete) ctx.drawImage(assets.rexyJump.img, Math.floor(this.x), Math.floor(this.y), this.w, this.h);
+      } else {
+         const sheet = assets.rexyRun.img;
+         if (!sheet.complete) return;
+         const animSpeed = Math.max(10, Math.floor(60 / speed));
+         const currentFrame = Math.floor(frame / animSpeed) % 2; 
+         ctx.drawImage(sheet, currentFrame * (sheet.naturalWidth/2), 0, sheet.naturalWidth/2, sheet.naturalHeight, Math.floor(this.x), Math.floor(this.y), this.w, this.h);
+      }
+    }
+  };
+
+  // --- 7. ENVIRONMENT ---
+  function initStars() {
+    for(let i=0; i<30; i++) {
+        stars.push({
+            x: Math.random() * CANVAS_WIDTH,
+            y: Math.random() * (CANVAS_HEIGHT - 60),
+            size: Math.random() * 2,
+            speed: Math.random() * 0.4 + 0.1
+        });
+    }
+  }
+
+  function updateBiome() {
+      // Change biome every 200 meters
+      const phase = Math.floor(distance / 200) % biomes.length;
+      if (phase !== currentBiomeIndex) {
+          currentBiomeIndex = phase;
+          // Apply CSS transitions to Body and Canvas
+          document.body.style.backgroundColor = biomes[phase].bg;
+          canvas.style.backgroundColor = biomes[phase].canvas;
+      }
+  }
+
+  function drawEnvironment() {
+    const biome = biomes[currentBiomeIndex];
+
+    // Stars (Dynamic color based on biome)
+    ctx.fillStyle = biome.star; 
+    stars.forEach(star => {
+        ctx.fillRect(Math.floor(star.x), Math.floor(star.y), star.size, star.size);
+        if(!isGameOver && gameStarted) star.x -= (star.speed * (speed/3));
+        if(star.x < 0) star.x = CANVAS_WIDTH;
+    });
+
+    if(gameStarted && !isGameOver) groundOffset -= speed;
+    if(groundOffset <= -CANVAS_WIDTH) groundOffset = 0;
+    
+    // Smooth Solid Ground
+    ctx.fillStyle = biome.ground; 
+    ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+    
+    // Horizon Line
+    ctx.strokeStyle = biome.line;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y);
+    ctx.lineTo(CANVAS_WIDTH, GROUND_Y);
+    ctx.stroke();
+  }
+
+  function drawUI() {
+      ctx.font = "12px 'Press Start 2P', cursive"; 
+      const uiX = CANVAS_WIDTH - 20;
+      const uiY = 30;
+      
+      const biome = biomes[currentBiomeIndex];
+      const rexText = `$REX: ${rexCount}`;
+      
+      ctx.save();
+      ctx.fillStyle = "#FFD700"; 
+      ctx.textAlign = "right";
+      ctx.fillText(rexText, uiX - 30, uiY); 
+
+      if (assets.rexToken.img.complete) {
+          ctx.drawImage(assets.rexToken.img, uiX - 25, uiY - 14, 20, 20); 
+      }
+      ctx.restore();
+
+      // Distance UI (Dynamic Color based on Day/Night)
+      ctx.fillStyle = biome.text;
+      ctx.textAlign = "right";
+      ctx.fillText(`DIST: ${Math.floor(distance)}m`, uiX, uiY + 25);
+  }
+
+  // --- 8. SPAWNERS ---
+  function spawnObstacle() {
+    const isFlying = Math.random() > 0.75; 
+    if (isFlying) {
+        obstacles.push({
+            x: CANVAS_WIDTH, y: GROUND_Y - 90, w: 60, h: 36, 
+            img: assets.rocket.img, type: 'flying',
+            hoverOffset: Math.random() * 10 
+        });
+    } else {
+        let idx = Math.floor(Math.random() * assets.obstacles.length);
+        if(idx === lastObstacleIndex) idx = Math.floor(Math.random() * assets.obstacles.length);
+        lastObstacleIndex = idx;
+        const template = assets.obstacles[idx];
+        obstacles.push({
+            x: CANVAS_WIDTH, y: GROUND_Y - template.h, w: template.w, h: template.h,
+            img: template.img, type: 'ground'
+        });
+    }
+  }
+
+  function spawnToken() {
+    const safetyDistance = 250; 
+    const isUnsafe = obstacles.some(obs => obs.x > CANVAS_WIDTH - safetyDistance);
+    if (isUnsafe) { nextTokenFrame += 20; return; }
+
+    const heightVar = Math.random() > 0.5 ? 40 : 80; 
+    tokens.push({ x: CANVAS_WIDTH, y: GROUND_Y - heightVar, w: 34, h: 34, collected: false });
+  }
+
+  // --- 9. MAIN LOOP ---
+  function animate() {
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.imageSmoothingEnabled = false;
+
+    drawEnvironment();
+    updateBiome();
+    const biome = biomes[currentBiomeIndex];
+
+    if (!gameStarted) {
+      drawUI();
+      ctx.textAlign = "center";
+      
+      // Title
+      ctx.font = "20px 'Press Start 2P'";
+      ctx.fillStyle = "#34d399";
+      ctx.fillText("REXY RUNNER", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 30);
+      
+      // Blink Effect (Dynamic Text Color)
+      if (Math.floor(Date.now() / 500) % 2 === 0) {
+          ctx.font = "12px 'Press Start 2P'";
+          ctx.fillStyle = biome.text;
+          ctx.fillText("PRESS SPACE OR TAP TO START", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
+      }
+      rexy.y = GROUND_Y - rexy.h; rexy.draw();
+      requestAnimationFrame(animate);
+      return;
+    }
+
+    rexy.update();
+    rexy.draw();
+
+    if (frame >= nextObstacleFrame) {
+      spawnObstacle();
+      const minGap = Math.floor(220 / speed); 
+      nextObstacleFrame = frame + minGap + Math.floor(Math.random() * 80);
+    }
+    if (frame >= nextTokenFrame) {
+      spawnToken();
+      nextTokenFrame = frame + 50 + Math.floor(Math.random() * 100);
+    }
+
+    // --- DRAW OBSTACLES ---
+    obstacles = obstacles.filter(obs => obs.x + obs.w > -100);
+    obstacles.forEach(obs => {
+        obs.x -= speed;
+
+        let drawY = obs.y;
+        if(obs.type === 'flying') {
+            drawY = obs.y + Math.sin((frame + obs.hoverOffset) * 0.1) * 5;
+            ctx.fillStyle = (frame % 4 < 2) ? "orange" : "yellow"; 
+            ctx.beginPath();
+            ctx.moveTo(obs.x + 5, drawY + 10);
+            ctx.lineTo(obs.x - 15, drawY + 18); 
+            ctx.lineTo(obs.x + 5, drawY + 26);
+            ctx.fill();
+        }
+
+        if(obs.img.complete) {
+            ctx.drawImage(obs.img, Math.floor(obs.x), Math.floor(drawY), obs.w, obs.h);
+        } else { 
+            ctx.fillStyle = "red"; ctx.fillRect(Math.floor(obs.x), Math.floor(drawY), obs.w, obs.h); 
+        }
+
+        // --- HITBOX LOGIC ---
+        let rexHitX = rexy.x + 12;
+        let rexHitW = rexy.w - 24; 
+        let rexHitY = rexy.y + 8;
+        let rexHitH = rexy.h - 12;
+
+        if(rexy.isDucking && !rexy.isJumping) {
+            rexHitY = rexy.y + 10; 
+            rexHitH = 15; 
+        }
+
+        let obsHitX = obs.x + 5; 
+        let obsHitW = obs.w - 10; 
+        let obsHitY = drawY + 5;
+        let obsHitH = obs.h - 10;
+
+        if(SHOW_HITBOXES) {
+            ctx.strokeStyle = "lime"; ctx.lineWidth = 1;
+            ctx.strokeRect(rexHitX, rexHitY, rexHitW, rexHitH);
+            ctx.strokeStyle = "red";
+            ctx.strokeRect(obsHitX, obsHitY, obsHitW, obsHitH);
+        }
+
+        if (
+            rexHitX < obsHitX + obsHitW &&
+            rexHitX + rexHitW > obsHitX &&
+            rexHitY < obsHitY + obsHitH &&
+            rexHitY + rexHitH > obsHitY
+        ) {
+            isGameOver = true;
+            sfx.crash();
+        }
+    });
+
+    // --- TOKENS ---
+    tokens = tokens.filter(t => t.x + t.w > -100 && !t.collected);
+    tokens.forEach(t => {
+        t.x -= speed;
+        const pulse = Math.sin(frame * 0.2) * 2; 
+        
+        ctx.save();
+        if (assets.rexToken.img.complete) ctx.drawImage(assets.rexToken.img, Math.floor(t.x - pulse/2), Math.floor(t.y - pulse/2), t.w + pulse, t.h + pulse);
+        else { ctx.fillStyle = "#ffd700"; ctx.beginPath(); ctx.arc(t.x + 15, t.y + 15, 15 + pulse/2, 0, Math.PI*2); ctx.fill(); }
+        ctx.restore();
+
+        if (rexy.x < t.x + t.w && rexy.x + rexy.w > t.x && rexy.y < t.y + t.h && rexy.y + rexy.h > t.y) {
+            t.collected = true; rexCount += 1; sfx.coin();
+        }
+    });
+
+    drawUI();
+
+    if (!isGameOver) {
+      distance += 0.1;
+      frame++;
+      speed += 0.0003; 
+      requestAnimationFrame(animate);
+    } else {
+      ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.fillStyle = "white"; ctx.textAlign = "center";
+      ctx.font = "20px 'Press Start 2P'";
+      ctx.fillText("RUG PULLED!", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 20);
+      ctx.font = "10px 'Press Start 2P'";
+      ctx.fillText(`COLLECTED ${rexCount} $REX`, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 20);
+      ctx.fillText("TAP OR SPACE TO RETRY", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 50);
+    }
+  }
+
+  // --- 10. CONTROLS ---
+  function handleInput(type) {
+    if (!gameStarted) {
+        gameStarted = true;
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        sfx.jump();
+        nextObstacleFrame = frame + 100;
+        return;
+    }
+    if (isGameOver) {
+        isGameOver = false; obstacles = []; tokens = []; distance = 0; rexCount = 0; speed = 2.5; 
+        currentBiomeIndex = 0; rexy.y = GROUND_Y - rexy.h; nextObstacleFrame = frame + 100;
+        requestAnimationFrame(animate);
+        return;
+    }
+    if (type === 'JUMP') {
+        if (!rexy.isJumping && !rexy.isDucking) { rexy.vy = -12; sfx.jump(); }
+    }
+    if (type === 'DUCK_START') rexy.isDucking = true;
+    if (type === 'DUCK_END') rexy.isDucking = false;
+  }
+
+  window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); handleInput('JUMP'); }
+      if (e.code === "ArrowDown") { e.preventDefault(); handleInput('DUCK_START'); }
+  });
+  window.addEventListener("keyup", (e) => {
+      if (e.code === "ArrowDown") handleInput('DUCK_END');
+  });
+  canvas.addEventListener("mousedown", (e) => { e.preventDefault(); handleInput('JUMP'); });
+  canvas.addEventListener("touchstart", (e) => { e.preventDefault(); handleInput('JUMP'); }, {passive: false});
+
+</script>
+</body>
+</html>

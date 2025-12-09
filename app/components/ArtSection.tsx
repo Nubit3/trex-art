@@ -1,6 +1,4 @@
 "use client";
-
-import Image from "next/image";
 import { useState } from "react";
 import ImageModal from "./ImageModal";
 
@@ -8,99 +6,79 @@ type ArtSectionProps = {
   id: string;
   title: string;
   images: string[];
-  headingClassName?: string;
-  enableRating?: boolean;
+  variant?: "gallery" | "comics";
+  enableRating?: boolean; 
 };
 
-export default function ArtSection({
-  id,
-  title,
-  images,
-  headingClassName,
-  enableRating = false,
-}: ArtSectionProps) {
+export default function ArtSection({ id, title, images, variant = "gallery" }: ArtSectionProps) {
   const [modalIndex, setModalIndex] = useState<number | null>(null);
-  const [ratings, setRatings] = useState<{ [key: string]: number }>({});
-
-  const openModal = (index: number) => setModalIndex(index);
-  const closeModal = () => setModalIndex(null);
-
-  const handleRating = (image: string, value: number) => {
-    setRatings((prev) => ({ ...prev, [image]: value }));
-  };
+  const isComic = variant === "comics";
 
   return (
-    <section id={id} className="mb-20">
-      <h3
-        className={`${headingClassName} text-xl text-emerald-50 mb-4 tracking-wide`}
-      >
-        {title}
-      </h3>
+    <section id={id} className="w-full">
+      <div className="flex items-end justify-between mb-8 border-b border-white/10 pb-4">
+        <h3 className="text-3xl md:text-4xl font-light tracking-tighter text-white">
+          {title}
+        </h3>
+        <span className="font-mono text-xs text-cyan-500">[{images.length} ASSETS]</span>
+      </div>
 
-      {/* MOBILE FIX → grid-cols-1 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className={
+        isComic 
+          // COMIC FIX: Changed to a GRID (3 per row) so they aren't huge.
+          ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" 
+          // GALLERY: Masonry
+          : "columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4"
+      }>
         {images.map((src, i) => (
           <div
             key={src + i}
-            className="group relative rounded-2xl overflow-hidden border border-emerald-700/50 bg-slate-950/70 shadow-[0_0_20px_rgba(16,185,129,0.25)] hover:shadow-[0_0_30px_rgba(16,185,129,0.35)] transition-all cursor-pointer"
-            onClick={() => openModal(i)}
+            onClick={() => setModalIndex(i)}
+            className={`
+              relative overflow-hidden cursor-pointer rounded-lg break-inside-avoid group
+              ${isComic 
+                 // COMIC CARD STYLE
+                 ? "w-full border-2 border-slate-700 bg-slate-900 shadow-xl hover:-translate-y-2 transition-transform duration-300" 
+                 // GALLERY CARD STYLE
+                 : "bg-slate-900 border border-white/10 hover:border-cyan-500 transition-colors duration-300 mb-4"
+              }
+            `}
           >
-            <div className="relative w-full h-52">
-              <Image
-                src={src}
-                alt={`Artwork ${i + 1}`}
-                fill
-                sizes="(min-width: 1024px) 220px, (min-width: 768px) 33vw, 50vw"
-                className="object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-            </div>
+            <img 
+              src={src} 
+              alt={`Art ${i}`}
+              className={`
+                block w-full h-auto
+                ${!isComic && "hover:opacity-90 transition-opacity"}
+              `}
+              loading="lazy"
+            />
+            
+            {/* COMIC LABEL */}
+            {isComic && (
+              <div className="p-4 bg-[#0a0a0a] border-t border-slate-800">
+                <p className="text-emerald-500 font-mono text-xs mb-1">ISSUE #{i + 1}</p>
+                <p className="text-white font-bold text-sm">The Rexy Chronicles</p>
+              </div>
+            )}
 
-            {/* Rating (optional) */}
-            {enableRating && (
-              <div className="flex items-center justify-between p-2 text-xs text-emerald-200">
-                <span>Rate:</span>
-                <div className="flex gap-1">
-                  {[...Array(10)].map((_, num) => (
-                    <button
-                      key={num}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRating(src, num + 1);
-                      }}
-                      className={`w-5 h-5 text-[0.65rem] rounded-full border ${
-                        ratings[src] === num + 1
-                          ? "bg-lime-300 text-slate-900 border-lime-400"
-                          : "border-emerald-600 text-emerald-300"
-                      }`}
-                    >
-                      {num + 1}
-                    </button>
-                  ))}
-                </div>
+            {/* GALLERY HOVER OVERLAY */}
+            {!isComic && (
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+                 <p className="text-xs font-mono text-cyan-400">IMG_0{i}</p>
               </div>
             )}
           </div>
         ))}
       </div>
 
-      {/* Modal */}
       {modalIndex !== null && (
         <ImageModal
           images={images}
           currentIndex={modalIndex}
-          onClose={closeModal}
-          onNext={() =>
-            setModalIndex((prev) =>
-              prev === null ? null : (prev + 1) % images.length
-            )
-          }
-          onPrev={() =>
-            setModalIndex((prev) =>
-              prev === null
-                ? null
-                : (prev - 1 + images.length) % images.length
-            )
-          }
+          onClose={() => setModalIndex(null)}
+          onNext={() => setModalIndex((prev) => prev === null ? null : (prev + 1) % images.length)}
+          onPrev={() => setModalIndex((prev) => prev === null ? null : (prev - 1 + images.length) % images.length)}
         />
       )}
     </section>

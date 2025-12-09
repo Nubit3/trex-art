@@ -1,278 +1,161 @@
-import Image from "next/image";
-import { Baloo_2 } from "next/font/google";
 import fs from "fs";
 import path from "path";
 import ArtSection from "./components/ArtSection";
 import RexyChatbot from "./components/RexyChatbot";
 import Navbar from "./components/Navbar";
-import DrawSection from "./components/DrawSection"; // 🆕 draw/paint section
+import DrawSection from "./components/DrawSection";
 
-// Cartoon heading font for logo/titles
-const baloo = Baloo_2({ subsets: ["latin"] });
-
-// 📌 Read all images from public/art (server-side)
+// --- HELPERS ---
 function getGalleryImages() {
   const artDir = path.join(process.cwd(), "public", "art");
-
-  if (!fs.existsSync(artDir)) {
-    return [];
-  }
-
-  const files = fs.readdirSync(artDir);
-
-  const imageFiles = files
-    .filter((file) => /\.(png|jpe?g|gif|webp)$/i.test(file)) // only image files
-    .map((file) => ({
-      name: file,
-      time: fs.statSync(path.join(artDir, file)).mtime.getTime(), // modified time
-    }))
-    .sort((a, b) => a.time - b.time) // oldest → newest
-    .map((file) => `/art/${file.name}`); // convert to public URLs
-
-  return imageFiles;
+  if (!fs.existsSync(artDir)) return [];
+  return fs.readdirSync(artDir)
+    .filter((file) => /\.(png|jpe?g|gif|webp)$/i.test(file))
+    .map((file) => `/art/${file}`);
 }
 
-// 📌 Read all images from public/comics (server-side)
 function getComicsImages() {
   const comicsDir = path.join(process.cwd(), "public", "comics");
-
-  if (!fs.existsSync(comicsDir)) {
-    return [];
-  }
-
-  const files = fs.readdirSync(comicsDir);
-
-  const imageFiles = files
-    .filter((file) => /\.(png|jpe?g|gif|webp)$/i.test(file)) // only image files
-    .map((file) => ({
-      name: file,
-      time: fs.statSync(path.join(comicsDir, file)).mtime.getTime(),
-    }))
-    .sort((a, b) => a.time - b.time)
-    .map((file) => `/comics/${file.name}`);
-
-  return imageFiles;
+  if (!fs.existsSync(comicsDir)) return [];
+  return fs.readdirSync(comicsDir)
+    .filter((file) => /\.(png|jpe?g|gif|webp)$/i.test(file))
+    .map((file) => `/comics/${file}`);
 }
 
 export default function Home() {
   const galleryImages = getGalleryImages();
   const comicsImages = getComicsImages();
-  const featuredImage =
-    galleryImages[galleryImages.length - 1] || "/art/image1.jpg"; // fallback
 
   return (
-    <main className="rex-bg min-h-screen text-slate-50 relative overflow-hidden">
-      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
-        {/* NAVBAR WITH HAMBURGER MENU */}
-        <Navbar brandClassName={baloo.className} />
+    <main className="min-h-screen dino-skin-bg text-white overflow-x-hidden font-sans selection:bg-emerald-500/30">
+      
+      {/* NAVBAR (Includes Hamburger) */}
+      <Navbar />
 
-        {/* HEADER BANNER IMAGE */}
-        <section className="mb-14 md:mb-16">
-          <div className="relative w-full aspect-[16/7] rounded-3xl overflow-hidden border border-emerald-700/80 shadow-[0_0_45px_rgba(56,189,248,0.6)]">
-            <Image
-              src="/rextoon-header.jpg" // put the file in public/rextoon-header.jpg
-              alt="REXTOON – Daily Comics & Art Gallery"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover"
-            />
-          </div>
-        </section>
+      {/* 1. HERO SECTION */}
+      <section className="relative pt-32 pb-20 px-6">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+          
+          <div className="space-y-8 z-10 order-2 lg:order-1">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-950/20 text-emerald-400 text-xs font-mono tracking-widest uppercase">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"/>
+              System Online
+            </div>
 
-        {/* HERO SECTION */}
-        <section className="grid md:grid-cols-[1.1fr_1fr] gap-10 items-center mb-16 md:mb-20">
-          {/* TEXT SIDE */}
-          <div className="space-y-5">
-            <p className="pill inline-flex items-center text-[0.65rem] md:text-xs uppercase tracking-[0.35em] text-cyan-50/90 px-4 py-1.5">
-              WEB3 CARTOONIST · HANDMADE ART
+            <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-white">
+              REX<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">TOON</span>
+            </h1>
+
+            <p className="text-slate-400 text-lg max-w-lg leading-relaxed font-light">
+              Digital Artifacts. Blockchain Narrative. <br />
+              <span className="text-emerald-500 font-medium">The Apex Predator of Web3 Art.</span>
             </p>
 
-            <div>
-              <h1
-                className={`${baloo.className} text-4xl md:text-6xl font-black leading-[1.02]`}
-              >
-                <span className="rex-gradient-text block drop-shadow-[0_0_24px_rgba(56,189,248,0.6)]">
-                  T&nbsp;REX
-                </span>
-              </h1>
-              <p className="mt-2 text-lg md:text-2xl font-semibold text-emerald-50/95">
-                the cartoon dino of Web3.
-              </p>
-            </div>
-
-            <p className="text-emerald-100/85 text-sm md:text-base max-w-md">
-              I&apos;m a Web3 cartoonist drawing a tiny T-Rex in different moods,
-              stories and crypto moments. All pieces start as handmade sketches,
-              then I scan and bring them to life digitally.
-            </p>
-
-            <div className="flex flex-wrap gap-3">
-              <a
-                href="#gallery"
-                className="px-5 py-3 rounded-2xl bg-lime-300 text-slate-900 font-semibold text-xs md:text-sm shadow-[0_0_40px_rgba(190,242,100,0.65)] hover:bg-lime-200 transition-transform hover:-translate-y-0.5 hover:shadow-[0_0_60px_rgba(190,242,100,0.85)]"
-              >
-                Explore Gallery
+            <div className="flex flex-wrap gap-4 pt-4">
+              <a href="#gallery" className="px-8 py-4 bg-white text-black font-bold tracking-wide rounded hover:bg-emerald-400 transition-colors">
+                ENTER ARCHIVE
               </a>
-
-              <a
-                href="#featured"
-                className="px-5 py-3 rounded-2xl border border-cyan-400/80 bg-slate-950/50 text-xs md:text-sm text-cyan-100/90 hover:border-fuchsia-400 hover:text-fuchsia-200 transition-colors"
-              >
-                View Featured Art
+              <a href="#game" className="px-8 py-4 border border-white/20 text-white font-bold tracking-wide rounded hover:bg-white/5 transition-colors">
+                PLAY GAME
               </a>
-            </div>
-
-            <div className="flex flex-wrap gap-2 text-[0.68rem] md:text-[0.72rem] text-emerald-100/80">
-              <span className="px-3 py-1 rounded-full bg-emerald-900/60 border border-emerald-500/60">
-                ✏️ Handmade sketches
-              </span>
-              <span className="px-3 py-1 rounded-full bg-sky-900/60 border border-sky-500/60">
-                🌐 Web3 culture & memes
-              </span>
-              <span className="px-3 py-1 rounded-full bg-fuchsia-900/50 border border-fuchsia-500/70">
-                🎨 Future NFT collections
-              </span>
             </div>
           </div>
 
-          {/* FEATURED GOLD CARD */}
-          <div id="featured" className="group relative perspective-[1200px]">
-            <div
-              className="relative rounded-3xl bg-gradient-to-br from-amber-300/40 via-amber-500/10 to-emerald-500/10 p-[2px] shadow-[0_0_45px_rgba(250,204,21,0.6)] transition-transform duration-300 group-hover:-rotate-2 group-hover:-translate-y-1"
-              style={{ transformStyle: "preserve-3d" }}
-            >
-              <div className="rounded-3xl bg-slate-950/90 border border-amber-300/60 px-4 py-4 md:px-5 md:py-5 backdrop-blur-xl">
-                <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-900 via-sky-900 to-fuchsia-900">
-                  <Image
-                    src={featuredImage}
-                    alt="Featured REXTOON artwork"
-                    fill
-                    sizes="(min-width: 1024px) 320px, (min-width: 768px) 50vw, 100vw"
-                    className="object-cover"
-                  />
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(252,211,77,0.5),transparent_55%),radial-gradient(circle_at_100%_100%,rgba(251,191,36,0.5),transparent_55%)] mix-blend-screen opacity-80" />
-                </div>
-
-                <div className="mt-4 text-[0.7rem] md:text-xs text-amber-50/95 flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold tracking-wide">
-                      Legendary Featured Card
-                    </div>
-                    <div className="text-amber-200/80">
-                      Handmade · Scanned · REXTOON style
-                    </div>
-                  </div>
-                  <span className="px-3 py-1 rounded-full border border-amber-300/90 bg-amber-300/20 text-[0.65rem] uppercase tracking-[0.18em] text-amber-100 shadow-[0_0_18px_rgba(250,204,21,0.8)]">
-                    GOLD
-                  </span>
-                </div>
-              </div>
-
-              {/* subtle glow behind card */}
-              <div className="pointer-events-none absolute -inset-4 rounded-[32px] bg-[radial-gradient(circle_at_10%_0%,rgba(250,204,21,0.25),transparent_55%),radial-gradient(circle_at_90%_100%,rgba(59,130,246,0.25),transparent_55%)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
+          <div className="relative order-1 lg:order-2">
+            <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl w-full max-w-[600px] mx-auto lg:mx-0 bg-black">
+               <img 
+                 src="/rextoon-header.jpg" 
+                 alt="Hero Art"
+                 className="w-full h-auto object-cover block"
+               />
+               <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-transparent to-transparent opacity-50" />
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* ART GALLERY WITH RATING */}
+      {/* MAIN CONTENT */}
+      <div className="max-w-7xl mx-auto px-6 py-24 space-y-40">
         <ArtSection
           id="gallery"
-          title="Art Gallery"
+          title="DIGITAL ARTIFACTS"
           images={galleryImages}
-          enableRating
-          headingClassName={baloo.className}
+          enableRating={false} 
         />
-
-        {/* COMICS SECTION */}
+        
+        {/* COMICS (Now uses Grid layout via updated ArtSection) */}
         <ArtSection
           id="comics"
-          title="Rex Comics"
+          title="NARRATIVE LOGS"
           images={comicsImages}
-          headingClassName={baloo.className}
+          variant="comics" 
         />
 
-        {/* DRAW SECTION 🖌️ */}
-        <DrawSection headingClassName={baloo.className} />
-
-        {/* ABOUT */}
-        <section id="about" className="mb-14">
-          <h3
-            className={`${baloo.className} text-lg md:text-xl mb-3 text-emerald-50`}
-          >
-            About REXTOON
-          </h3>
-          <p className="text-emerald-100/85 text-sm md:text-base max-w-2xl leading-relaxed">
-            REXTOON is my cartoon universe about a tiny T-Rex trying to become a
-            Web3 legend. I mix handmade sketchbook drawings with digital colour and
-            crypto storytelling. This website is the main hub for my T-Rex art,
-            experiments and future NFT drops.
-          </p>
-        </section>
-
-        {/* CONTACT – ICONS ONLY */}
-        <section
-          id="contact"
-          className="border-t border-emerald-800/70 pt-6 pb-8 text-[0.8rem] text-emerald-200/85 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-        >
-          <h4 className={`${baloo.className} text-sm md:text-base`}>
-            Connect with me
-          </h4>
-
-          <div className="flex items-center gap-6">
-            {/* X (Twitter) */}
-            <a href="https://x.com/trex_btc" target="_blank" rel="noreferrer">
-              <Image
-                src="/icons/x.png"
-                width={26}
-                height={26}
-                alt="X"
-                className="opacity-80 hover:opacity-100 transition"
-              />
-            </a>
-
-            {/* Telegram */}
-            <a href="https://t.me/trex_btc" target="_blank" rel="noreferrer">
-              <Image
-                src="/icons/telegram.png"
-                width={26}
-                height={26}
-                alt="Telegram"
-                className="opacity-80 hover:opacity-100 transition"
-              />
-            </a>
-
-            {/* Discord */}
-            <a
-              href="https://discord.com/users/1041937099496103956"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Image
-                src="/icons/discord.png"
-                width={26}
-                height={26}
-                alt="Discord"
-                className="opacity-80 hover:opacity-100 transition"
-              />
-            </a>
-
-            {/* Email */}
-            <a href="mailto:trex.btc.eth@gmail.com">
-              <Image
-                src="/icons/email.png"
-                width={26}
-                height={26}
-                alt="Email"
-                className="opacity-80 hover:opacity-100 transition"
-              />
-            </a>
-          </div>
-        </section>
+        <DrawSection />
       </div>
 
-      {/* Floating Rexy chatbot bubble */}
-      <RexyChatbot />
+      {/* GAME SECTION */}
+      <section id="game" className="w-full py-24 relative overflow-hidden mt-12">
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="text-center mb-10">
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-2 tracking-tight">
+              ARCADE <span className="text-emerald-500">TERMINAL</span>
+            </h2>
+            <p className="text-slate-500 font-mono text-sm">TRY TO BEAT THE HIGH SCORE</p>
+          </div>
+
+          <div className="rounded-3xl bg-[#0a0a0a] p-4 md:p-8 border border-white/5 shadow-2xl relative">
+             <div className="absolute top-4 left-4 w-2 h-2 rounded-full bg-slate-800" />
+             <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-slate-800" />
+             <div className="absolute bottom-4 left-4 w-2 h-2 rounded-full bg-slate-800" />
+             <div className="absolute bottom-4 right-4 w-2 h-2 rounded-full bg-slate-800" />
+
+             <div className="console-frame rounded-xl overflow-hidden bg-black relative">
+                <div className="w-full h-[60vh] md:h-[70vh]">
+                  <iframe
+                    src="/rexy-runner-game.html"
+                    className="w-full h-full border-0 block"
+                    title="Rexy Runner Game"
+                    loading="lazy" 
+                  />
+                </div>
+             </div>
+
+             <div className="mt-6 flex justify-between items-center px-4">
+                <div className="flex gap-2">
+                   <div className="w-8 h-1 bg-emerald-900 rounded-full"></div>
+                   <div className="w-8 h-1 bg-emerald-900 rounded-full"></div>
+                </div>
+                <div className="font-mono text-emerald-700 text-xs tracking-widest">
+                   INSERT COIN
+                </div>
+             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="border-t border-white/10 bg-[#050505] pt-16 pb-12 relative z-10">
+        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-8">
+          <div>
+            <h4 className="text-2xl font-bold text-white mb-4">REXTOON STUDIOS</h4>
+            <p className="text-slate-500 text-sm max-w-sm leading-relaxed">
+              Forged in the prehistoric era, minted on the blockchain.
+            </p>
+          </div>
+          <div className="flex gap-8 md:justify-end items-center">
+             <a href="https://x.com/trex_btc" className="text-slate-400 hover:text-white transition text-sm font-bold tracking-widest uppercase">Twitter</a>
+             <a href="https://t.me/trex_btc" className="text-slate-400 hover:text-white transition text-sm font-bold tracking-widest uppercase">Telegram</a>
+             <a href="mailto:trex.btc.eth@gmail.com" className="text-slate-400 hover:text-white transition text-sm font-bold tracking-widest uppercase">Email</a>
+          </div>
+        </div>
+      </footer>
+
+      {/* FORCE CHATBOT VISIBILITY */}
+      <div className="fixed bottom-6 right-6 z-[9999] pointer-events-auto">
+         <RexyChatbot />
+      </div>
+
     </main>
   );
 }
