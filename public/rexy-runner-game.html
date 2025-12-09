@@ -3,146 +3,83 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Rexy Runner: Pro Edition</title>
-
+  <title>Rexy Runner: Ultimate</title>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-
   <style>
-    /* 1. RESET & FULL SCREEN SETUP */
     html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: #0f172a; 
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      overflow: hidden; background-color: #000;
       font-family: 'Press Start 2P', cursive;
-      user-select: none;
-      -webkit-user-select: none;
-      touch-action: none;
+      user-select: none; -webkit-user-select: none; touch-action: none;
     }
-
-    /* 2. THE GAME CONTAINER */
     #game-container {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #000; /* Pure black for that "Monitor Off" feel */
+      position: relative; width: 100%; height: 100%;
+      display: flex; justify-content: center; align-items: center;
+      background: #000;
     }
-
-    /* 3. THE CANVAS (Responsive & Full Fill) */
     canvas {
-      display: block;
-      /* This makes it stretch to fill the container */
-      width: 100%;
-      height: 100%;
-      /* This ensures the game scales proportionally if needed, 
-         but 'object-fit: contain' ensures no stretching weirdness */
-      object-fit: fill; 
-      
-      image-rendering: pixelated; /* Crisp Pixels */
+      display: block; width: 100%; height: 100%;
+      image-rendering: pixelated;
     }
-
-    /* 4. CRT SCANLINE OVERLAY */
     #scanlines {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: linear-gradient(
-        to bottom,
-        rgba(255,255,255,0),
-        rgba(255,255,255,0) 50%,
-        rgba(0,0,0,0.2) 50%,
-        rgba(0,0,0,0.2)
-      );
-      background-size: 100% 4px;
-      pointer-events: none;
-      z-index: 5;
-      opacity: 0.4;
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(to bottom, rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%);
+      background-size: 100% 4px; pointer-events: none; z-index: 5; opacity: 0.3;
     }
-
-    /* 5. UI OVERLAYS */
     .overlay-screen {
-        position: absolute;
-        top: 0; left: 0; width: 100%; height: 100%;
-        display: none;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        text-align: center;
-        z-index: 20;
-        backdrop-filter: blur(4px);
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        display: none; flex-direction: column; justify-content: center; align-items: center;
+        text-align: center; z-index: 20; backdrop-filter: blur(4px);
     }
     #pause-screen { background: rgba(0,0,0,0.7); color: white; }
-    #pause-text { font-size: clamp(20px, 5vw, 40px); line-height: 2; text-shadow: 4px 4px 0 #000; }
-
-    #ban-screen { background: rgba(50, 0, 0, 0.95); color: #ff5555; border: 8px solid red; box-sizing: border-box; }
-    #ban-text { font-size: clamp(16px, 4vw, 30px); line-height: 1.5; }
-
+    #pause-text { font-size: 24px; line-height: 2; text-shadow: 4px 4px 0 #000; }
+    #ban-screen { background: rgba(50, 0, 0, 0.95); color: #ff5555; border: 4px solid red; box-sizing: border-box; }
+    #ban-text { font-size: 18px; line-height: 1.5; padding: 20px; }
   </style>
 </head>
 <body>
 
 <div id="game-container">
     <div id="scanlines"></div>
-
     <div id="pause-screen" class="overlay-screen">
-        <div id="pause-text">GAME PAUSED<br><span style="font-size: 0.5em; color: #aaa;">TAP TO RESUME</span></div>
+        <div id="pause-text">PAUSED<br><span style="font-size: 0.5em; color: #aaa;">TAP TO RESUME</span></div>
     </div>
-
     <div id="ban-screen" class="overlay-screen">
-        <div id="ban-text">
-            <h1 style="color:red; margin-bottom:20px;">SYSTEM LOCKDOWN</h1>
-            SUSPICIOUS ACTIVITY DETECTED.<br>TERMINAL ACCESS REVOKED.
-        </div>
+        <div id="ban-text"><h1 style="color:red; margin-bottom:20px;">SYSTEM LOCKDOWN</h1>SUSPICIOUS ACTIVITY.<br>ACCESS DENIED.</div>
     </div>
-
-    <canvas id="rexyCanvas" width="1280" height="720" tabindex="0"></canvas>
+    <canvas id="rexyCanvas"></canvas>
 </div>
 
 <script>
-  // --- 0. SECURITY SYSTEM ---
-  const Security = {
-      startTime: 0,
-      inputTimestamps: [],
-      isBanned: false,
-      checkBanStatus: () => {
-          if (localStorage.getItem('rexy_banned') === 'true') Security.triggerBan("Previous Ban Detected");
-      },
-      logInput: () => {
-          if (Security.isBanned) return;
-          const now = Date.now();
-          Security.inputTimestamps.push(now);
-          if (Security.inputTimestamps.length > 10) Security.inputTimestamps.shift();
-          if (Security.inputTimestamps.length >= 10) {
-              const duration = Security.inputTimestamps[9] - Security.inputTimestamps[0];
-              if (duration < 300) Security.triggerBan("Macro/Bot Input Detected");
-          }
-      },
-      validateState: (currentDist) => {
-          if (Security.isBanned || Security.startTime === 0) return;
-          const elapsedSeconds = (Date.now() - Security.startTime) / 1000;
-          const maxPossibleDist = elapsedSeconds * 30; // Slightly higher buffer
-          if (currentDist > maxPossibleDist + 150 && currentDist > 50) Security.triggerBan("Speed Hack Detected");
-      },
-      triggerBan: (reason) => {
-          console.error("SECURITY ALERT: " + reason);
-          Security.isBanned = true; isGameOver = true; gameStarted = false;
-          localStorage.setItem('rexy_banned', 'true');
-          document.getElementById('ban-screen').style.display = 'flex';
-          throw new Error("USER BANNED");
-      }
-  };
-  Security.checkBanStatus();
-
-  // --- 1. CONFIGURATION (HD) ---
-  // Using 1280x720 internal resolution for crisp scaling
-  const CANVAS_WIDTH = 1280;
-  const CANVAS_HEIGHT = 720;
-  const GROUND_Y = 620; // Lower ground for more sky space
+  // --- 0. DYNAMIC VARIABLES ---
+  const canvas = document.getElementById("rexyCanvas");
+  const ctx = canvas.getContext("2d");
   
+  let W = window.innerWidth;
+  let H = window.innerHeight;
+  let GROUND_Y = H - 100; 
+  let SCALE = 1;
+
+  // --- 1. RESIZE ENGINE ---
+  function resize() {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W;
+      canvas.height = H;
+      if (H > W) { 
+          // MOBILE
+          GROUND_Y = H - 180; 
+          SCALE = 0.9; 
+      } else { 
+          // DESKTOP
+          GROUND_Y = H - 100;
+          SCALE = 1.0;
+      }
+      ctx.imageSmoothingEnabled = false;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
   // --- 2. ASSETS ---
   const assets = {
     rexyRun:   { src: "rexy-run-sheet.png", img: new Image() },
@@ -154,7 +91,7 @@
     vitalik:   { src: "vitalik.png",  img: new Image() },
     rocket:    { src: "rocket.png",     img: new Image() },
     whale:     { src: "whale.png",      img: new Image() },
-    cloud:     { src: "cloud.png",      img: new Image() },
+    cloud:     { src: "cloud.png",      img: new Image() }, // Enemy Cloud
     hammer:    { src: "hammer.png",     img: new Image() },
     satellite: { src: "satellite.png",  img: new Image() },
     astronaut: { src: "astronaut.png",  img: new Image() },
@@ -169,133 +106,24 @@
 
   // --- 3. BIOMES ---
   const biomes = [
-    { sky: [135, 206, 235], horizon: [210, 180, 140], ground: [244, 164, 96], detail: [199, 140, 83], line: [139, 69, 19], text: [51, 51, 51], starAlpha: 0.0 },
-    { sky: [10, 10, 42],    horizon: [0, 51, 0],      ground: [0, 77, 0],      detail: [0, 102, 0],    line: [0, 255, 0],    text: [255, 255, 255], starAlpha: 0.6 },
-    { sky: [224, 247, 250], horizon: [178, 235, 242], ground: [255, 255, 255], detail: [167, 198, 207], line: [0, 172, 193],  text: [51, 51, 51],    starAlpha: 0.0 },
-    { sky: [34, 10, 10],    horizon: [51, 0, 0],      ground: [26, 26, 26],    detail: [68, 17, 17],    line: [255, 51, 0],    text: [255, 255, 255], starAlpha: 0.6 }
+    { sky: [135, 206, 235], horizon: [210, 180, 140], ground: [244, 164, 96], detail: [199, 140, 83], line: [139, 69, 19], text: [51, 51, 51], starAlpha: 0.0 }, // Desert
+    { sky: [10, 10, 42],    horizon: [0, 51, 0],      ground: [0, 77, 0],      detail: [0, 102, 0],    line: [0, 255, 0],    text: [255, 255, 255], starAlpha: 0.6 }, // Neon Night
+    { sky: [224, 247, 250], horizon: [178, 235, 242], ground: [255, 255, 255], detail: [167, 198, 207], line: [0, 172, 193],  text: [51, 51, 51],    starAlpha: 0.0 }, // Ice
+    { sky: [34, 10, 10],    horizon: [51, 0, 0],      ground: [26, 26, 26],    detail: [68, 17, 17],    line: [255, 51, 0],    text: [255, 255, 255], starAlpha: 0.6 }  // Mars
   ];
   let activePalette = JSON.parse(JSON.stringify(biomes[0]));
-
-  // --- 4. AUDIO ---
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const sfx = {
-    playTone: (freq, type, duration) => {
-      if(audioCtx.state === 'suspended') audioCtx.resume();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.start(); osc.stop(audioCtx.currentTime + duration);
-    },
-    jump: () => sfx.playTone(150, 'square', 0.1),
-    coin: () => sfx.playTone(1200, 'sine', 0.1),
-    crash: () => sfx.playTone(100, 'sawtooth', 0.5),
-    hurt: () => { sfx.playTone(80, 'sawtooth', 0.2); setTimeout(() => sfx.playTone(60, 'sawtooth', 0.3), 100); },
-    powerup: () => { sfx.playTone(400, 'square', 0.1); setTimeout(() => sfx.playTone(600, 'square', 0.2), 100); },
-    heal: () => { sfx.playTone(500, 'sine', 0.1); setTimeout(() => sfx.playTone(800, 'sine', 0.2), 100); },
-    tick: () => sfx.playTone(440, 'square', 0.1),
-    go: () => { sfx.playTone(880, 'square', 0.1); setTimeout(() => sfx.playTone(1200, 'square', 0.3), 100); }
-  };
-
-  // --- 5. INIT ---
-  function startLoading() {
-      Object.values(assets).forEach(val => {
-          if(val.src) { val.img.src = val.src; }
-          else if (Array.isArray(val)) { val.forEach(obs => { obs.img.src = obs.src; }); }
-      });
-      initEnvironment();
-      requestAnimationFrame(animate);
-  }
-
-  const canvas = document.getElementById("rexyCanvas");
-  const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = false;
-
-  let gameStarted = false;
-  let isGameOver = false;
-  let isPaused = false;
-  let isCountingDown = false;
-  let countdownNum = 5;
-  let countdownTimer = 0;
-  let distance = 0;
-  let rexCount = 0;
-  let lives = 5;
-  let lastDamageFrame = -1000;
-  let heroPassCount = 0;
-  const HEROES_TO_HEAL = 3;
-  let activeMultiplier = 1;
-  let multiplierTimer = 0;
-  let speed = 2.5; // Slightly faster base speed for HD
-  let obstacles = [];
-  let tokens = [];
-  let frame = 0;
-  let nextObstacleFrame = 0;
-  let nextTokenFrame = 0;
-  let lastObstacleIndex = -1;
-  let stars = []; let clouds = []; let horizonShapes = []; let groundDetails = [];
-
-  // REX OBJECT (Scaled Up 2x)
-  const rexy = {
-    x: 100, y: 0, w: 88, h: 88, vy: 0, isJumping: false, isDucking: false,
-    update() {
-      if (this.isDucking && !this.isJumping) {
-          this.h = 50; this.y = GROUND_Y - 50;
-      } else {
-          this.h = 88;
-          this.y += this.vy;
-          if (this.y < GROUND_Y - this.h) {
-            this.vy += 0.9; this.isJumping = true; // Gravity increased
-          } else {
-            this.y = GROUND_Y - this.h; this.vy = 0; this.isJumping = false;
-          }
-      }
-    },
-    draw() {
-      ctx.imageSmoothingEnabled = false;
-      if (frame - lastDamageFrame < 120) { if (Math.floor(frame / 10) % 2 === 0) return; }
-      let sprite = assets.rexyRun.img;
-      if (this.isJumping) sprite = assets.rexyJump.img;
-      if(activeMultiplier > 1) { ctx.save(); ctx.shadowColor = "#FFD700"; ctx.shadowBlur = 30; }
-      
-      if (sprite.complete && sprite.naturalWidth > 0) {
-         if(this.isDucking) {
-             const frameW = sprite.naturalWidth / 2;
-             ctx.drawImage(sprite, 0, 0, frameW, sprite.naturalHeight, Math.floor(this.x), Math.floor(this.y), this.w, 50);
-         } else if (this.isJumping) {
-             ctx.drawImage(sprite, Math.floor(this.x), Math.floor(this.y), this.w, this.h);
-         } else {
-             const frameW = sprite.naturalWidth / 2;
-             const animSpeed = Math.max(10, Math.floor(60 / (speed * 0.5)));
-             const currentFrame = (isCountingDown) ? 0 : Math.floor(frame / animSpeed) % 2;
-             ctx.drawImage(sprite, currentFrame * frameW, 0, frameW, sprite.naturalHeight, Math.floor(this.x), Math.floor(this.y), this.w, this.h);
-         }
-      } else {
-         ctx.fillStyle = "#34d399"; ctx.fillRect(this.x, this.y, this.w, this.h);
-      }
-      if(activeMultiplier > 1) ctx.restore();
-    }
-  };
-
-  function initEnvironment() {
-    stars = []; clouds = []; horizonShapes = []; groundDetails = [];
-    for(let i=0; i<60; i++) stars.push({ x: Math.random()*CANVAS_WIDTH, y: Math.random()*(CANVAS_HEIGHT-160), size: Math.random()*3, speed: Math.random()*0.2+0.1 });
-    for(let i=0; i<12; i++) clouds.push({ x: Math.random()*CANVAS_WIDTH, y: Math.random()*200, w: 80+Math.random()*80, h: 30+Math.random()*20, speed: Math.random()*0.3+0.2 });
-    for(let i=0; i<15; i++) horizonShapes.push({ x: i*150, w: 120+Math.random()*60, h: 50+Math.random()*50 });
-    for(let i=0; i<40; i++) groundDetails.push({ x: Math.random()*CANVAS_WIDTH, y: GROUND_Y + Math.random()*(CANVAS_HEIGHT-GROUND_Y), size: Math.random()*5+2 });
-  }
 
   function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
   function lerpColorArr(current, target) {
       const speed = 0.02;
-      current[0] = lerp(current[0], target[0], speed); current[1] = lerp(current[1], target[1], speed); current[2] = lerp(current[2], target[2], speed);
+      current[0] = lerp(current[0], target[0], speed); 
+      current[1] = lerp(current[1], target[1], speed); 
+      current[2] = lerp(current[2], target[2], speed);
       return `rgb(${Math.round(current[0])}, ${Math.round(current[1])}, ${Math.round(current[2])})`;
   }
 
   function updateBiomeAndColors() {
-      const phase = Math.floor(distance / 200) % biomes.length;
+      const phase = Math.floor(distance / 250) % biomes.length;
       const target = biomes[phase];
       const bgString = lerpColorArr(activePalette.sky, target.sky);
       const groundString = lerpColorArr(activePalette.ground, target.ground);
@@ -307,140 +135,188 @@
       return { bgString, groundString, horizonString, detailString, lineString, textString };
   }
 
-  function drawEnvironment(colors) {
-    if (activePalette.starAlpha > 0.01) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${activePalette.starAlpha})`;
-        stars.forEach(s => { ctx.fillRect(Math.floor(s.x), Math.floor(s.y), s.size, s.size); if(gameStarted && !isPaused) s.x -= s.speed; if(s.x < 0) s.x = CANVAS_WIDTH; });
-    }
-    if (activePalette.starAlpha < 0.5) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.6 - activePalette.starAlpha})`;
-        clouds.forEach(c => { ctx.fillRect(Math.floor(c.x), Math.floor(c.y), c.w, c.h); ctx.fillRect(Math.floor(c.x+20), Math.floor(c.y-20), c.w-40, c.h); if(gameStarted && !isPaused) c.x -= c.speed; if(c.x + c.w < 0) c.x = CANVAS_WIDTH; });
-    }
-    ctx.fillStyle = colors.horizonString;
-    horizonShapes.forEach(h => { ctx.beginPath(); ctx.moveTo(h.x, GROUND_Y); ctx.lineTo(h.x + h.w/2, GROUND_Y - h.h); ctx.lineTo(h.x + h.w, GROUND_Y); ctx.fill(); if(gameStarted && !isPaused) h.x -= speed * 0.5; if(h.x + h.w < 0) h.x = CANVAS_WIDTH; });
-    ctx.fillStyle = colors.groundString; ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
-    ctx.fillStyle = colors.detailString;
-    groundDetails.forEach(d => { ctx.fillRect(Math.floor(d.x), Math.floor(d.y), d.size, d.size); if(gameStarted && !isPaused) d.x -= speed; if(d.x < 0) d.x = CANVAS_WIDTH; });
-    ctx.strokeStyle = colors.lineString; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(CANVAS_WIDTH, GROUND_Y); ctx.stroke();
+  // --- 4. AUDIO ---
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const sfx = {
+    playTone: (freq, type, duration) => {
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+      osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.05, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+      osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + duration);
+    },
+    jump: () => sfx.playTone(150, 'square', 0.1), coin: () => sfx.playTone(1200, 'sine', 0.1),
+    crash: () => sfx.playTone(100, 'sawtooth', 0.5), hurt: () => { sfx.playTone(80, 'sawtooth', 0.2); },
+    heal: () => { sfx.playTone(500, 'sine', 0.1); }, go: () => { sfx.playTone(880, 'square', 0.1); },
+    tick: () => sfx.playTone(440, 'square', 0.1), powerup: () => { sfx.playTone(400, 'square', 0.1); }
+  };
+
+  // --- 5. GAME LOOP ---
+  function startLoading() {
+      Object.values(assets).forEach(val => { if(val.src) val.img.src = val.src; else if(Array.isArray(val)) val.forEach(obs => obs.img.src = obs.src); });
+      initEnvironment(); requestAnimationFrame(animate);
   }
 
-  function drawUI(colors) {
-      ctx.font = "24px 'Press Start 2P', cursive";
-      const uiX = CANVAS_WIDTH - 40;
-      const uiY = 60;
-      ctx.fillStyle = "#ff4444"; ctx.textAlign = "left";
-      let hearts = ""; for(let i=0; i<lives; i++) hearts += "❤";
-      ctx.fillText(hearts, 40, uiY);
+  let gameStarted = false, isGameOver = false, isPaused = false, isCountingDown = false;
+  let countdownNum = 5, countdownTimer = 0, distance = 0, rexCount = 0, lives = 5;
+  let lastDamageFrame = -1000, activeMultiplier = 1, multiplierTimer = 0, heroPassCount = 0;
+  const HEROES_TO_HEAL = 2; // +1 Life every 2 heroes
+  let speed = 4; 
+  let obstacles = [], tokens = [], frame = 0, nextObstacleFrame = 0, nextTokenFrame = 0;
+  let stars = [], clouds = [], horizonShapes = [], groundDetails = [];
 
-      ctx.font = "18px 'Press Start 2P'";
-      ctx.fillStyle = colors.textString;
-      ctx.fillText(`HERO POOL: ${heroPassCount}/${HEROES_TO_HEAL}`, 40, uiY + 40);
-
-      ctx.font = "24px 'Press Start 2P'";
-      const rexText = "$REX: " + Math.floor(rexCount);
-      ctx.save();
-      if(activeMultiplier > 1) {
-          ctx.fillStyle = "#00ff00"; ctx.textAlign = "right";
-          ctx.fillText(activeMultiplier + "X BOOST!", uiX - 350, uiY);
+  const rexy = {
+    x: 50, y: 0, w: 88, h: 88, vy: 0, isJumping: false, isDucking: false,
+    update() {
+      if (this.isDucking && !this.isJumping) { 
+          this.h = 50 * SCALE; 
+          this.y = GROUND_Y - this.h; 
+      } else {
+          this.h = 88 * SCALE;
+          this.y += this.vy;
+          if (this.y < GROUND_Y - this.h) { this.vy += 0.9; this.isJumping = true; } 
+          else { this.y = GROUND_Y - this.h; this.vy = 0; this.isJumping = false; }
       }
-      ctx.fillStyle = "#FFD700"; ctx.textAlign = "right";
-      ctx.fillText(rexText, uiX - 50, uiY);
-      if (assets.rexToken.img.complete) ctx.drawImage(assets.rexToken.img, uiX - 45, uiY - 24, 30, 30);
-      ctx.restore();
+    },
+    draw() {
+      if (frame - lastDamageFrame < 120 && Math.floor(frame/10)%2===0) return;
+      let sprite = assets.rexyRun.img;
+      if (this.isJumping) sprite = assets.rexyJump.img;
+      let drawW = this.w; let drawH = this.h;
+      if (sprite.complete && sprite.naturalWidth > 0) {
+         if(this.isDucking) {
+             const frameW = sprite.naturalWidth / 2;
+             ctx.drawImage(sprite, 0, 0, frameW, sprite.naturalHeight, this.x, this.y, drawW, 50 * SCALE);
+         } else if (this.isJumping) {
+             ctx.drawImage(sprite, this.x, this.y, drawW, drawH);
+         } else {
+             const frameW = sprite.naturalWidth / 2;
+             const animSpeed = Math.max(10, Math.floor(60 / (speed * 0.5)));
+             const currentFrame = (isCountingDown) ? 0 : Math.floor(frame / animSpeed) % 2;
+             ctx.drawImage(sprite, currentFrame * frameW, 0, frameW, sprite.naturalHeight, this.x, this.y, drawW, drawH);
+         }
+      } else { ctx.fillStyle = "#34d399"; ctx.fillRect(this.x, this.y, drawW, drawH); }
+    }
+  };
 
-      ctx.fillStyle = colors.textString; ctx.textAlign = "right";
-      ctx.fillText("DIST: " + Math.floor(distance) + "m", uiX, uiY + 45);
+  function initEnvironment() {
+    stars=[]; clouds=[]; horizonShapes=[]; groundDetails=[];
+    for(let i=0; i<60; i++) stars.push({ x: Math.random()*W, y: Math.random()*(H-160), size: Math.random()*3, speed: Math.random()*0.2+0.1 });
+    // SCENERY CLOUDS (Procedural)
+    for(let i=0; i<12; i++) clouds.push({ x: Math.random()*W, y: Math.random()*(H/2), w: 80+Math.random()*80, h: 30+Math.random()*20, speed: Math.random()*0.3+0.2 });
+    for(let i=0; i<20; i++) horizonShapes.push({ x: i*150, w: 120+Math.random()*60, h: 50+Math.random()*50 });
+    for(let i=0; i<40; i++) groundDetails.push({ x: Math.random()*W, y: H, size: Math.random()*5+2, offset: Math.random()*100 });
   }
 
   function spawnObstacle() {
+    const spawnX = W + 100;
     const r = Math.random();
-    if (r > 0.90) {
+    const obsScale = SCALE;
+    
+    // 1. HEROES
+    if (r > 0.90) { 
         const heroRoll = Math.random();
-        let heroType = 'vitalik'; let mult = 2; let img = assets.vitalik.img;
-        if (heroRoll > 0.85) { img = assets.elon.img; mult = 5; }
-        else if (heroRoll > 0.60) { img = assets.trump.img; mult = 4; }
-        else if (heroRoll > 0.35) { img = assets.cz.img; mult = 3; }
-        obstacles.push({ x: CANVAS_WIDTH, y: GROUND_Y - 88, w: 80, h: 88, img: img, type: 'hero', multiplier: mult, passed: false });
+        let img = assets.vitalik.img; let mult = 2;
+        if (heroRoll > 0.85) { img = assets.elon.img; mult=5; } else if (heroRoll > 0.60) { img = assets.trump.img; mult=4; } else if (heroRoll > 0.35) { img = assets.cz.img; mult=3; }
+        obstacles.push({ x: spawnX, y: GROUND_Y - (88*obsScale), w: 80*obsScale, h: 88*obsScale, img: img, type: 'hero', multiplier: mult, passed: false });
         return;
     }
-    if (r > 0.65) {
+    
+    // 2. FLYING (Includes Enemy Cloud)
+    if (r > 0.65) { 
+        let skyImg = assets.rocket.img; let movement = 'sine'; 
         const skyRoll = Math.random();
-        let skyImg = assets.rocket.img; let movement = 'sine'; let yPos = GROUND_Y - 180;
-        if (skyRoll < 0.16) { skyImg = assets.rocket.img; movement = 'sine'; yPos = GROUND_Y - 180; }
-        else if (skyRoll < 0.32) { skyImg = assets.whale.img; movement = 'slow_sine'; yPos = GROUND_Y - 220; }
-        else if (skyRoll < 0.48) { skyImg = assets.cloud.img; movement = 'jitter'; yPos = GROUND_Y - 200; }
-        else if (skyRoll < 0.64) { skyImg = assets.hammer.img; movement = 'aggressive'; yPos = GROUND_Y - 160; }
-        else if (skyRoll < 0.80) { skyImg = assets.satellite.img; movement = 'smooth'; yPos = GROUND_Y - 240; }
-        else { skyImg = assets.astronaut.img; movement = 'drift'; yPos = GROUND_Y - 190; }
-        obstacles.push({ x: CANVAS_WIDTH, y: yPos, w: 120, h: 72, img: skyImg, type: 'flying', movementType: movement, baseY: yPos, hoverOffset: Math.random() * 100 });
+        if (skyRoll < 0.16) { skyImg = assets.rocket.img; movement = 'sine'; }
+        else if (skyRoll < 0.32) { skyImg = assets.whale.img; movement = 'slow_sine'; }
+        else if (skyRoll < 0.48) { skyImg = assets.cloud.img; movement = 'jitter'; } // <-- Enemy Cloud is here
+        else if (skyRoll < 0.64) { skyImg = assets.hammer.img; movement = 'aggressive'; }
+        else if (skyRoll < 0.80) { skyImg = assets.satellite.img; movement = 'smooth'; }
+        else { skyImg = assets.astronaut.img; movement = 'drift'; }
+        
+        let yPos = GROUND_Y - (150 + Math.random()*100); 
+        obstacles.push({ x: spawnX, y: yPos, w: 120*obsScale, h: 72*obsScale, img: skyImg, type: 'flying', movementType: movement, baseY: yPos, hoverOffset: Math.random() * 100 });
         return;
     }
+    
+    // 3. GROUND
     let idx = Math.floor(Math.random() * assets.obstacles.length);
-    if(idx === lastObstacleIndex) idx = Math.floor(Math.random() * assets.obstacles.length);
-    lastObstacleIndex = idx;
     const template = assets.obstacles[idx];
-    obstacles.push({ x: CANVAS_WIDTH, y: GROUND_Y - template.h, w: template.w, h: template.h, img: template.img, type: 'ground' });
+    obstacles.push({ x: spawnX, y: GROUND_Y - (template.h*obsScale), w: template.w*obsScale, h: template.h*obsScale, img: template.img, type: 'ground' });
   }
 
   function spawnToken() {
+    const spawnX = W + 100;
     const safetyDistance = 400;
-    const isUnsafe = obstacles.some(obs => obs.x > CANVAS_WIDTH - safetyDistance);
+    const isUnsafe = obstacles.some(obs => obs.x > W - safetyDistance);
     if (isUnsafe) { nextTokenFrame += 20; return; }
     const heightVar = Math.random() > 0.5 ? 80 : 160;
-    tokens.push({ x: CANVAS_WIDTH, y: GROUND_Y - heightVar, w: 68, h: 68, collected: false });
-  }
-
-  function startCountdown() {
-      isCountingDown = true; countdownNum = 5; countdownTimer = performance.now(); sfx.tick();
-      rexy.y = GROUND_Y - rexy.h; requestAnimationFrame(animate);
+    tokens.push({ x: spawnX, y: GROUND_Y - heightVar, w: 68*SCALE, h: 68*SCALE, collected: false });
   }
 
   function animate() {
-    if (Security.isBanned) return;
-    if (frame % 60 === 0) Security.validateState(distance);
     if (isPaused) { requestAnimationFrame(animate); return; }
-
+    
     const colors = updateBiomeAndColors();
-    ctx.fillStyle = colors.bgString; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    drawEnvironment(colors);
+
+    // Background
+    ctx.fillStyle = colors.bgString;
+    ctx.fillRect(0, 0, W, H);
+    
+    // Environment - STARS & SCENERY CLOUDS
+    if (activePalette.starAlpha > 0.01) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${activePalette.starAlpha})`;
+        stars.forEach(s => { ctx.fillRect(Math.floor(s.x), Math.floor(s.y), s.size, s.size); if(gameStarted && !isGameOver) s.x -= s.speed; if(s.x < 0) s.x = W; });
+    }
+    
+    // FIXED: Background clouds are now 8-BIT SHAPES (Not the asset)
+    if (activePalette.starAlpha < 0.5) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.6 - activePalette.starAlpha})`;
+        clouds.forEach(c => { 
+            // Simple retro cloud shape (2 rectangles)
+            ctx.fillRect(Math.floor(c.x), Math.floor(c.y), c.w, c.h); 
+            ctx.fillRect(Math.floor(c.x + c.w*0.2), Math.floor(c.y - c.h*0.5), c.w*0.6, c.h);
+            if(gameStarted && !isGameOver) c.x -= c.speed; if(c.x + c.w < 0) c.x = W; 
+        });
+    }
+
+    // Ground & Horizon
+    ctx.fillStyle = colors.groundString;
+    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+    ctx.strokeStyle = colors.lineString;
+    ctx.lineWidth = 5; 
+    ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(W, GROUND_Y); ctx.stroke();
+    ctx.fillStyle = colors.horizonString;
+    horizonShapes.forEach(h => { 
+        ctx.beginPath(); ctx.moveTo(h.x, GROUND_Y); ctx.lineTo(h.x + h.w/2, GROUND_Y - h.h); ctx.lineTo(h.x + h.w, GROUND_Y); ctx.fill(); 
+        if(gameStarted && !isGameOver) h.x -= speed * 0.5; if(h.x + h.w < 0) h.x = W; 
+    });
+    ctx.fillStyle = colors.detailString;
+    groundDetails.forEach(d => { 
+        ctx.fillRect(Math.floor(d.x), Math.floor(d.y), d.size, d.size); 
+        if(gameStarted && !isGameOver) d.x -= speed; if(d.x < 0) d.x = W; 
+    });
 
     if (isCountingDown) {
-        drawUI(colors); rexy.draw();
-        ctx.fillStyle = "#FFD700"; ctx.font = "bold 120px 'Press Start 2P'"; ctx.textAlign = "center";
-        ctx.fillText(countdownNum > 0 ? countdownNum : "GO!", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
-        if (performance.now() - countdownTimer > 1000) {
-            countdownNum--; countdownTimer = performance.now();
-            if (countdownNum > 0) sfx.tick(); else if (countdownNum === 0) sfx.go();
-            else { isCountingDown = false; gameStarted = true; Security.startTime = Date.now(); }
-        }
+        rexy.draw();
+        ctx.fillStyle = "#FFD700"; ctx.textAlign = "center"; ctx.font = "bold 60px 'Press Start 2P'";
+        ctx.fillText(countdownNum > 0 ? countdownNum : "GO!", W/2, H/2);
+        if (performance.now() - countdownTimer > 1000) { countdownNum--; countdownTimer = performance.now(); if(countdownNum<0) { isCountingDown=false; gameStarted=true; } }
         requestAnimationFrame(animate); return;
     }
 
     if (!gameStarted) {
-        drawUI(colors); ctx.textAlign = "center";
-        ctx.font = "40px 'Press Start 2P'"; ctx.fillStyle = "#34d399";
-        ctx.fillText("REXY RUNNER HD", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 60);
-        if (Math.floor(Date.now() / 500) % 2 === 0) {
-            ctx.font = "24px 'Press Start 2P'"; ctx.fillStyle = colors.textString;
-            ctx.fillText("PRESS SPACE OR TAP TO START", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
-        }
+        ctx.fillStyle = "#34d399"; ctx.textAlign = "center"; ctx.font = "30px 'Press Start 2P'";
+        ctx.fillText("REXY RUNNER", W/2, H/2 - 40);
+        ctx.font = "16px 'Press Start 2P'"; ctx.fillStyle = colors.textString;
+        ctx.fillText("TAP OR SPACE TO START", W/2, H/2 + 20);
         rexy.y = GROUND_Y - rexy.h; rexy.draw();
         requestAnimationFrame(animate); return;
     }
 
-    if (activeMultiplier > 1 && frame > multiplierTimer) activeMultiplier = 1;
-
     rexy.update(); rexy.draw();
 
-    if (frame >= nextObstacleFrame) {
-        spawnObstacle();
-        const minGap = Math.floor(300 / speed); // Larger gap for HD
-        nextObstacleFrame = frame + minGap + Math.floor(Math.random() * 100);
-    }
-    if (frame >= nextTokenFrame) {
-        spawnToken();
-        nextTokenFrame = frame + 80 + Math.floor(Math.random() * 150);
-    }
+    if (frame >= nextObstacleFrame) { spawnObstacle(); nextObstacleFrame = frame + Math.floor(300/speed) + Math.random()*100; }
+    if (frame >= nextTokenFrame) { spawnToken(); nextTokenFrame = frame + 80 + Math.random()*150; }
 
     obstacles = obstacles.filter(obs => obs.x + obs.w > -200);
     obstacles.forEach((obs, index) => {
@@ -449,99 +325,81 @@
         if(obs.type === 'flying') {
             const t = (frame + obs.hoverOffset) * 0.05;
             if (obs.movementType === 'sine') drawY = obs.baseY + Math.sin(t) * 20;
-            else if (obs.movementType === 'slow_sine') drawY = obs.baseY + Math.sin(t*0.5) * 30;
             else if (obs.movementType === 'jitter') drawY = obs.baseY + (Math.random() * 8 - 4);
-            else if (obs.movementType === 'aggressive') drawY = obs.baseY + Math.sin(t*2) * 10;
-            else if (obs.movementType === 'drift') drawY = obs.baseY + Math.cos(t*0.2) * 40;
             else drawY = obs.baseY + Math.sin(t) * 10;
         }
 
-        if(obs.img.complete && obs.img.naturalWidth > 0) ctx.drawImage(obs.img, Math.floor(obs.x), Math.floor(drawY), obs.w, obs.h);
-        else { ctx.fillStyle = "red"; ctx.fillRect(Math.floor(obs.x), Math.floor(drawY), obs.w, obs.h); }
-
-        let isInvincible = (frame - lastDamageFrame < 120);
-        let rexHitX = rexy.x + 28; let rexHitW = rexy.w - 56; let rexHitY = rexy.y + 20; let rexHitH = rexy.h - 40;
-        if(rexy.isDucking && !rexy.isJumping) { rexHitY = rexy.y + 20; rexHitH = 30; }
-        let obsHitX = obs.x + 16; let obsHitW = obs.w - 32; let obsHitY = drawY + 20; let obsHitH = obs.h - 20;
-
-        if (rexHitX < obsHitX + obsHitW && rexHitX + rexHitW > obsHitX && rexHitY < obsHitY + obsHitH && rexHitY + rexHitH > obsHitY) {
-            if (obs.type === 'hero' && !obs.passed) { if(!isInvincible) handleCrash(index); }
-            else if (!isInvincible) handleCrash(index);
+        if(obs.img && obs.img.complete && obs.img.naturalWidth > 0) {
+            ctx.drawImage(obs.img, obs.x, drawY, obs.w, obs.h);
+        } else { 
+            ctx.fillStyle = (obs.type === 'hero') ? '#4ade80' : '#f87171'; 
+            ctx.fillRect(obs.x, drawY, obs.w, obs.h); 
         }
 
+        if (rexy.x < obs.x + obs.w - 20 && rexy.x + rexy.w > obs.x + 20 && rexy.y < obs.y + obs.h - 10 && rexy.y + rexy.h > obs.y + 10) {
+             if (obs.type === 'hero' && !obs.passed) { /* pass */ } 
+             else if (frame - lastDamageFrame > 120) { lives--; sfx.hurt(); lastDamageFrame = frame; if(lives<=0) { isGameOver=true; sfx.crash(); } }
+        }
+
+        // HERO PASS LOGIC (RESTORED & FIXED)
         if (obs.type === 'hero' && !obs.passed && obs.x + obs.w < rexy.x) {
-            obs.passed = true; activeMultiplier = obs.multiplier; multiplierTimer = frame + 600;
+            obs.passed = true; 
+            activeMultiplier = obs.multiplier; 
+            multiplierTimer = frame + 600;
+            
             heroPassCount++;
-            if (heroPassCount >= HEROES_TO_HEAL) { heroPassCount = 0; if(lives < 5) { lives++; sfx.heal(); } else sfx.powerup(); } else sfx.powerup();
+            // Heal if 2 heroes passed
+            if (heroPassCount >= HEROES_TO_HEAL) {
+                heroPassCount = 0;
+                if(lives < 5) { lives++; sfx.heal(); } else { sfx.powerup(); }
+            } else {
+                sfx.powerup();
+            }
         }
     });
 
     tokens = tokens.filter(t => t.x + t.w > -200 && !t.collected);
     tokens.forEach(t => {
         t.x -= speed;
-        const pulse = Math.sin(frame * 0.2) * 4;
-        ctx.save();
-        if (assets.rexToken.img.complete) ctx.drawImage(assets.rexToken.img, Math.floor(t.x - pulse/2), Math.floor(t.y - pulse/2), t.w + pulse, t.h + pulse);
-        else { ctx.fillStyle = "#ffd700"; ctx.beginPath(); ctx.arc(t.x + 30, t.y + 30, 30 + pulse/2, 0, Math.PI*2); ctx.fill(); }
-        ctx.restore();
+        const pulse = Math.sin(frame * 0.2) * 5; 
+        if(assets.rexToken.img.complete && assets.rexToken.img.naturalWidth > 0) {
+            ctx.drawImage(assets.rexToken.img, t.x - pulse/2, t.y - pulse/2, t.w + pulse, t.h + pulse);
+        } else { 
+            ctx.fillStyle="gold"; ctx.beginPath(); ctx.arc(t.x + t.w/2, t.y + t.h/2, (t.w/2) + pulse, 0, Math.PI*2); ctx.fill(); 
+        }
         if (rexy.x < t.x + t.w && rexy.x + rexy.w > t.x && rexy.y < t.y + t.h && rexy.y + rexy.h > t.y) {
-            t.collected = true; rexCount += 1 * activeMultiplier; sfx.coin();
+            t.collected = true; rexCount += 1; sfx.coin();
         }
     });
 
-    drawUI(colors);
+    ctx.fillStyle = "#ff4444"; ctx.font = "16px 'Press Start 2P'"; ctx.textAlign = "left";
+    let hearts = ""; for(let i=0; i<lives; i++) hearts += "❤"; ctx.fillText(hearts, 20, 40);
+    
+    ctx.textAlign = "right"; ctx.fillStyle = "#FFD700";
+    ctx.fillText("$REX: " + rexCount, W - 20, 40);
+    ctx.fillStyle = colors.textString;
+    ctx.fillText(Math.floor(distance) + "m", W - 20, 70);
 
-    if (!isGameOver) {
-        distance += 0.1; frame++;
-        if (speed < 18) speed += 0.0001;
-        requestAnimationFrame(animate);
-    } else {
-        ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        ctx.fillStyle = "white"; ctx.textAlign = "center";
-        ctx.font = "40px 'Press Start 2P'";
-        ctx.fillText("GAME OVER", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 40);
-        ctx.font = "20px 'Press Start 2P'";
-        ctx.fillText("COLLECTED " + Math.floor(rexCount) + " $REX", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 40);
-        ctx.fillText("TAP OR SPACE TO RESTART", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 100);
+    if (!isGameOver) { distance += 0.1; frame++; if (speed < 15) speed += 0.001; requestAnimationFrame(animate); }
+    else {
+        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0,0,W,H);
+        ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "30px 'Press Start 2P'";
+        ctx.fillText("GAME OVER", W/2, H/2 - 20);
+        ctx.font = "16px 'Press Start 2P'";
+        ctx.fillText("TAP TO RESTART", W/2, H/2 + 40);
     }
   }
 
-  function handleCrash(obsIndex) { lives--; sfx.hurt(); lastDamageFrame = frame; obstacles.splice(obsIndex, 1); if (lives <= 0) { isGameOver = true; sfx.crash(); } }
-
-  function togglePause() {
-      if(!gameStarted || isGameOver || isCountingDown) return;
-      isPaused = !isPaused;
-      document.getElementById("pause-screen").style.display = isPaused ? 'flex' : 'none';
-      if(!isPaused) requestAnimationFrame(animate);
+  function handleInput() {
+      if(!gameStarted && !isCountingDown) { if(audioCtx.state === 'suspended') audioCtx.resume(); startCountdown(); return; }
+      if(isGameOver) { isGameOver=false; obstacles=[]; tokens=[]; distance=0; rexCount=0; lives=5; speed=4; startCountdown(); return; }
+      if(!rexy.isJumping) { rexy.vy = -18 * SCALE; sfx.jump(); }
   }
-
-  function handleInput(type) {
-    if (isPaused && type !== 'PAUSE') { togglePause(); return; }
-    Security.logInput();
-    if (!gameStarted && !isCountingDown) { if(audioCtx.state === 'suspended') audioCtx.resume(); startCountdown(); return; }
-    if (isCountingDown) return;
-    if (isGameOver) {
-        isGameOver = false; obstacles = []; tokens = []; distance = 0; rexCount = 0; speed = 2.5; lives = 5;
-        currentBiomeIndex = 0; rexy.y = GROUND_Y - rexy.h; nextObstacleFrame = frame + 100; activeMultiplier = 1; heroPassCount = 0;
-        startCountdown(); return;
-    }
-    if (type === 'JUMP') { if (!rexy.isJumping && !rexy.isDucking) { rexy.vy = -20; sfx.jump(); } }
-    if (type === 'DUCK_START') rexy.isDucking = true;
-    if (type === 'DUCK_END') rexy.isDucking = false;
-  }
-
-  window.addEventListener("keydown", (e) => {
-      if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); handleInput('JUMP'); }
-      if (e.code === "ArrowDown") { e.preventDefault(); handleInput('DUCK_START'); }
-      if (e.code === "KeyP") togglePause();
-  });
-  window.addEventListener("keyup", (e) => { if (e.code === "ArrowDown") handleInput('DUCK_END'); });
-
-  const gameDiv = document.getElementById("game-container");
-  gameDiv.addEventListener("mousedown", (e) => { e.preventDefault(); handleInput('JUMP'); });
-  gameDiv.addEventListener("touchstart", (e) => { e.preventDefault(); handleInput('JUMP'); }, {passive: false});
-  document.getElementById("pause-screen").addEventListener("click", togglePause);
-  window.addEventListener("resize", () => { if(gameStarted && !isGameOver && !isPaused && !isCountingDown) togglePause(); });
+  function startCountdown() { isCountingDown=true; countdownNum=3; countdownTimer=performance.now(); requestAnimationFrame(animate); }
+  
+  window.addEventListener("keydown", (e) => { if(e.code==="Space" || e.code==="ArrowUp") handleInput(); });
+  document.getElementById("game-container").addEventListener("touchstart", (e) => { e.preventDefault(); handleInput(); }, {passive:false});
+  document.getElementById("game-container").addEventListener("mousedown", (e) => { e.preventDefault(); handleInput(); });
 
   startLoading();
 </script>
