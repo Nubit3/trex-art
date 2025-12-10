@@ -4,6 +4,7 @@ import ArtSection from "./components/ArtSection";
 import RexyChatbot from "./components/RexyChatbot";
 import Navbar from "./components/Navbar";
 import DrawSection from "./components/DrawSection";
+import GameTerminal from "./components/GameTerminal";
 
 // --- HELPERS ---
 function getGalleryImages() {
@@ -28,19 +29,17 @@ export default function Home() {
 
   return (
     <main className="min-h-screen dino-skin-bg text-white overflow-x-hidden font-sans selection:bg-emerald-500/30">
-      
-      {/* NAVBAR (Includes Hamburger) */}
+
+      {/* NAVBAR */}
       <Navbar />
 
       {/* 1. HERO SECTION */}
       <section className="relative pt-32 pb-20 px-6">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
-          
+
           <div className="space-y-8 z-10 order-2 lg:order-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-950/20 text-emerald-400 text-xs font-mono tracking-widest uppercase">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"/>
-              System Online
-            </div>
+            
+            {/* REMOVED 'SYSTEM ONLINE' BADGE HERE */}
 
             <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-white">
               REX<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">TOON</span>
@@ -63,10 +62,13 @@ export default function Home() {
 
           <div className="relative order-1 lg:order-2">
             <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl w-full max-w-[600px] mx-auto lg:mx-0 bg-black">
-               <img 
-                 src="/rextoon-header.jpg" 
+               <img
+                 src="/rextoon-header.jpg"
                  alt="Hero Art"
                  className="w-full h-auto object-cover block"
+                 width={600} 
+                 height={400}
+                 fetchPriority="high" 
                />
                <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-transparent to-transparent opacity-50" />
             </div>
@@ -80,15 +82,14 @@ export default function Home() {
           id="gallery"
           title="DIGITAL ARTIFACTS"
           images={galleryImages}
-          enableRating={false} 
+          enableRating={false}
         />
-        
-        {/* COMICS (Now uses Grid layout via updated ArtSection) */}
+
         <ArtSection
           id="comics"
           title="NARRATIVE LOGS"
           images={comicsImages}
-          variant="comics" 
+          variant="comics"
         />
 
         <DrawSection />
@@ -104,33 +105,10 @@ export default function Home() {
             <p className="text-slate-500 font-mono text-sm">TRY TO BEAT THE HIGH SCORE</p>
           </div>
 
-          <div className="rounded-3xl bg-[#0a0a0a] p-4 md:p-8 border border-white/5 shadow-2xl relative">
-             <div className="absolute top-4 left-4 w-2 h-2 rounded-full bg-slate-800" />
-             <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-slate-800" />
-             <div className="absolute bottom-4 left-4 w-2 h-2 rounded-full bg-slate-800" />
-             <div className="absolute bottom-4 right-4 w-2 h-2 rounded-full bg-slate-800" />
-
-             <div className="console-frame rounded-xl overflow-hidden bg-black relative">
-                <div className="w-full h-[60vh] md:h-[70vh]">
-                  <iframe
-                    src="/rexy-runner-game.html"
-                    className="w-full h-full border-0 block"
-                    title="Rexy Runner Game"
-                    loading="lazy" 
-                  />
-                </div>
-             </div>
-
-             <div className="mt-6 flex justify-between items-center px-4">
-                <div className="flex gap-2">
-                   <div className="w-8 h-1 bg-emerald-900 rounded-full"></div>
-                   <div className="w-8 h-1 bg-emerald-900 rounded-full"></div>
-                </div>
-                <div className="font-mono text-emerald-700 text-xs tracking-widest">
-                   INSERT COIN
-                </div>
-             </div>
+          <div className="max-w-5xl mx-auto h-[600px] md:h-[700px]">
+             <GameTerminal />
           </div>
+
         </div>
       </section>
 
@@ -151,7 +129,6 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* FORCE CHATBOT VISIBILITY */}
       <div className="fixed bottom-6 right-6 z-[9999] pointer-events-auto">
          <RexyChatbot />
       </div>

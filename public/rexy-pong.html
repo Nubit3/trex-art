@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Rexy Pong: DeFi Defense</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #050505; font-family: 'Press Start 2P', cursive; user-select: none; touch-action: none; }
+    #game-container { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+    canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+    #scanlines { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%); background-size: 100% 4px; pointer-events: none; z-index: 5; opacity: 0.3; }
+    .ui-layer { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 40px; box-sizing: border-box; pointer-events: none; z-index: 10; color: white; text-shadow: 2px 2px 0 #000; }
+    .score-box { text-align: center; }
+    .score-label { font-size: 10px; color: #4ade80; margin-bottom: 5px; display: block; }
+    .score-val { font-size: 40px; }
+    #mute-btn { position: absolute; bottom: 20px; right: 20px; z-index: 30; background: rgba(0,0,0,0.6); border: 1px solid #555; color: #888; padding: 10px; font-size: 10px; cursor: pointer; pointer-events: auto; }
+    #start-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; }
+    
+    /* BAN SCREEN - HIDDEN BY DEFAULT */
+    #ban-screen { 
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+        background: rgba(50, 0, 0, 0.98); color: #ff5555; 
+        border: 10px solid red; box-sizing: border-box;
+        display: none; flex-direction: column; justify-content: center; align-items: center;
+        text-align: center; z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="scanlines"></div>
+    
+    <div class="ui-layer">
+        <div class="score-box">
+            <span class="score-label">YOU</span>
+            <span id="p-score" class="score-val">0</span>
+        </div>
+        <div class="score-box">
+            <span style="color:#FFD700; font-size: 16px; margin-top: 10px; display:block;">$REX: <span id="rex-score">0</span></span>
+        </div>
+        <div class="score-box">
+            <span class="score-label" style="color:#ef4444">BOT</span>
+            <span id="ai-score" class="score-val">0</span>
+        </div>
+    </div>
+
+    <div id="start-screen">
+        <h1 style="color: #4ade80; margin-bottom: 20px; font-size: 30px; text-shadow: 4px 4px 0 #000;">REXY PONG</h1>
+        <p style="color: #aaa; font-size: 12px; margin-bottom: 40px; line-height: 1.5; text-align: center;">
+            DEFEND THE WALLET.<br>HIT TOKENS TO MINT $REX.<br><br>
+            <span style="color: #fff;">TAP TO START</span>
+        </p>
+    </div>
+
+    <div id="ban-screen">
+        <h1 style="color:red; font-size: 40px; margin-bottom:20px; text-shadow: 0 0 10px red;">SYSTEM LOCKDOWN</h1>
+        <div style="font-size: 14px; line-height: 2; border-top: 1px solid #ff5555; border-bottom: 1px solid #ff5555; padding: 20px;">
+            SECURITY ALERT: <span id="ban-reason">UNAUTHORIZED ACCESS</span><br>
+            SUSPICIOUS ACTIVITY DETECTED.<br>
+            WALLET ADDRESS BLACKLISTED.
+        </div>
+    </div>
+
+    <div id="mute-btn">SOUND: ON</div>
+    <canvas id="pongCanvas"></canvas>
+</div>
+
+<script>
+// --- SECURITY LAYER (IIFE CLOSURE) ---
+(function() {
+    // --- HIDDEN VARIABLES ---
+    let _s0x = 0; // Rex Tokens (Secure)
+    let _p0x = 0; // Player Score
+    let _a0x = 0; // AI Score
+    let _lastTokenTime = 0;
+    
+    if (localStorage.getItem('rexy_ban_status') === 'banned') {
+        triggerBan("PRIOR OFFENSE DETECTED");
+        return; 
+    }
+
+    function triggerBan(reason) {
+        console.error("SECURITY VIOLATION:", reason);
+        document.getElementById('ban-screen').style.display = 'flex';
+        document.getElementById('ban-reason').innerText = reason;
+        document.getElementById('start-screen').style.display = 'none';
+        localStorage.setItem('rexy_ban_status', 'banned');
+        gameState = 'BANNED';
+        window.cancelAnimationFrame(animationFrameId);
+        canvas.replaceWith(canvas.cloneNode(true));
+    }
+
+    // --- ASSETS ---
+    const assets = {
+        token: { src: "rex-token.png", img: new Image() },
+        rexy:  { src: "rexy-run-sheet.png", img: new Image() }
+    };
+    Object.values(assets).forEach(a => { if(a.src) a.img.src = a.src; });
+
+    // --- SETUP ---
+    const canvas = document.getElementById("pongCanvas");
+    const ctx = canvas.getContext("2d");
+    let W, H;
+    let isMobile = false;
+    let animationFrameId;
+
+    function resize() {
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = W;
+        canvas.height = H;
+        isMobile = W < 768;
+        ctx.imageSmoothingEnabled = false;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- GAME STATE ---
+    let gameState = 'MENU'; 
+    let flashTimer = 0;
+
+    // --- OBJECTS ---
+    const paddleH = 100;
+    const paddleW = 15;
+    const player = { x: 20, y: H/2 - 50, w: paddleW, h: paddleH, color: '#4ade80' };
+    const ai = { x: W - 35, y: H/2 - 50, w: paddleW, h: paddleH, color: '#ef4444', speed: 6 };
+    // STARTING SPEED: 5 (Was 7, which was too fast)
+    const ball = { x: W/2, y: H/2, r: 8, speed: 5, dx: 5, dy: 3, color: '#fff' };
+
+    // Tokens Logic
+    let activeToken = null;
+    let tokenTimer = 0;
+    let nextTokenTime = 50; 
+
+    // --- AUDIO ENGINE ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let isMuted = false;
+    const sfx = {
+        beep: (f, t) => {
+            if(isMuted || audioCtx.state === 'suspended') return;
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.frequency.value = f; o.type=t; g.gain.value=0.1;
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + 0.1);
+        },
+        hit: () => sfx.beep(400, 'square'),
+        wall: () => sfx.beep(200, 'sine'),
+        score: () => sfx.beep(100, 'sawtooth'),
+        coin: () => sfx.beep(1200, 'sine')
+    };
+
+    // --- LOGIC ---
+    function resetBall() {
+        ball.x = W/2;
+        ball.y = H/2;
+        ball.speed = 5; // FIXED: Force reset to Base Speed 5
+        
+        // Ensure vector matches speed
+        // Maintain horizontal direction (loser serves)
+        let dirX = (ball.dx > 0) ? -1 : 1; 
+        
+        ball.dx = dirX * ball.speed; 
+        // Random slight vertical angle for variety
+        ball.dy = (Math.random() * 4) - 2; 
+    }
+
+    function spawnToken() {
+        const marginX = W * 0.25;
+        const marginY = H * 0.15;
+        activeToken = {
+            x: marginX + Math.random() * (W - marginX*2),
+            y: marginY + Math.random() * (H - marginY*2),
+            size: 40
+        };
+    }
+
+    function update() {
+        if (gameState !== 'PLAY') return;
+
+        // AI Movement
+        const targetY = ball.y - (ai.h / 2);
+        if (targetY > ai.y + 10) ai.y += ai.speed;
+        else if (targetY < ai.y - 10) ai.y -= ai.speed;
+        
+        // Clamp paddles
+        player.y = Math.max(0, Math.min(H - player.h, player.y));
+        ai.y = Math.max(0, Math.min(H - ai.h, ai.y));
+
+        // Move Ball
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+
+        // Walls
+        if (ball.y + ball.r > H || ball.y - ball.r < 0) {
+            ball.dy = -ball.dy;
+            sfx.wall();
+        }
+
+        // Paddles Collision
+        let paddle = (ball.x < W/2) ? player : ai;
+        if (
+            ball.x - ball.r < paddle.x + paddle.w &&
+            ball.x + ball.r > paddle.x &&
+            ball.y > paddle.y &&
+            ball.y < paddle.y + paddle.h
+        ) {
+            let collidePoint = (ball.y - (paddle.y + paddle.h/2));
+            collidePoint = collidePoint / (paddle.h/2);
+            let angle = collidePoint * (Math.PI/4);
+
+            let direction = (ball.x < W/2) ? 1 : -1;
+            
+            // SPEED INCREASE (Capped at 15 to prevent glitching)
+            if(ball.speed < 15) ball.speed += 0.5;
+            
+            ball.dx = direction * ball.speed * Math.cos(angle);
+            ball.dy = ball.speed * Math.sin(angle);
+            
+            sfx.hit();
+        }
+
+        // Token Collision & Spawning
+        if (activeToken) {
+            const dx = ball.x - (activeToken.x + activeToken.size/2);
+            const dy = ball.y - (activeToken.y + activeToken.size/2);
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+            if (dist < activeToken.size/2 + ball.r) {
+                // --- SECURITY CHECK ---
+                const now = Date.now();
+                if (now - _lastTokenTime < 500) {
+                    triggerBan("SPEED HACK DETECTED (TOKEN)");
+                    return;
+                }
+                _lastTokenTime = now;
+
+                _s0x += 5; // Add 5 Tokens
+                document.getElementById('rex-score').innerText = _s0x;
+                
+                activeToken = null;
+                tokenTimer = 0;
+                nextTokenTime = 80 + Math.random() * 150; 
+                sfx.coin();
+            }
+        } else {
+            tokenTimer++;
+            if(tokenTimer > nextTokenTime) {
+                spawnToken();
+            }
+        }
+
+        // Scoring
+        if (ball.x < 0) {
+            _a0x++;
+            document.getElementById('ai-score').innerText = _a0x;
+            sfx.score();
+            resetBall();
+        } else if (ball.x > W) {
+            _p0x++;
+            document.getElementById('p-score').innerText = _p0x;
+            sfx.score();
+            resetBall();
+        }
+    }
+
+    function draw() {
+        if(gameState === 'BANNED') return;
+
+        // Background
+        ctx.fillStyle = '#050505';
+        ctx.fillRect(0, 0, W, H);
+
+        // Center Line
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([20, 15]);
+        ctx.beginPath();
+        ctx.moveTo(W/2, 0);
+        ctx.lineTo(W/2, H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Rexy Mascot
+        if (assets.rexy.img.complete) {
+            const rSize = 100;
+            ctx.globalAlpha = 0.5; 
+            ctx.drawImage(assets.rexy.img, 0, 0, assets.rexy.img.naturalWidth/2, assets.rexy.img.naturalHeight, 20, H - rSize - 20, rSize, rSize);
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Token
+        if (activeToken) {
+            const pulse = Math.sin(Date.now() / 200) * 5;
+            if(assets.token.img.complete) {
+                ctx.drawImage(assets.token.img, activeToken.x - pulse, activeToken.y - pulse, activeToken.size + (pulse*2), activeToken.size + (pulse*2));
+            } else {
+                ctx.fillStyle = 'gold';
+                ctx.beginPath();
+                ctx.arc(activeToken.x + 20, activeToken.y + 20, 15 + pulse, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        // Paddles
+        ctx.fillStyle = player.color;
+        ctx.shadowBlur = 15; ctx.shadowColor = player.color;
+        ctx.fillRect(player.x, player.y, player.w, player.h);
+
+        ctx.fillStyle = ai.color;
+        ctx.shadowColor = ai.color;
+        ctx.fillRect(ai.x, ai.y, ai.w, ai.h);
+
+        // Ball
+        ctx.shadowBlur = 10; ctx.shadowColor = 'white';
+        ctx.fillStyle = ball.color;
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        animationFrameId = requestAnimationFrame(() => {
+            update();
+            draw();
+        });
+    }
+
+    // --- SECURE INPUTS ---
+    canvas.addEventListener('mousemove', (e) => {
+        if (gameState !== 'PLAY') return;
+        const rect = canvas.getBoundingClientRect();
+        const rootY = e.clientY - rect.top;
+        const scaleY = H / rect.height;
+        player.y = (rootY * scaleY) - (player.h / 2);
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+        if (gameState !== 'PLAY') return;
+        e.preventDefault(); 
+        const rect = canvas.getBoundingClientRect();
+        const rootY = e.touches[0].clientY - rect.top;
+        const scaleY = H / rect.height;
+        player.y = (rootY * scaleY) - (player.h / 2);
+    }, { passive: false });
+
+    // --- UI HANDLERS ---
+    const startScreen = document.getElementById('start-screen');
+    startScreen.addEventListener('click', () => {
+        if(gameState === 'BANNED') return;
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        startScreen.style.display = 'none';
+        
+        // RESET SCORES
+        _s0x = 0; 
+        _p0x = 0; 
+        _a0x = 0; 
+        
+        document.getElementById('rex-score').innerText = '0';
+        document.getElementById('p-score').innerText = '0';
+        document.getElementById('ai-score').innerText = '0';
+        
+        gameState = 'PLAY';
+        resetBall();
+        spawnToken();
+    });
+
+    const muteBtn = document.getElementById('mute-btn');
+    muteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isMuted = !isMuted;
+        muteBtn.innerText = isMuted ? "SOUND: OFF" : "SOUND: ON";
+        if(isMuted) audioCtx.suspend(); else audioCtx.resume();
+    });
+
+    draw();
+
+})();
+</script>
+</body>
+</html>
