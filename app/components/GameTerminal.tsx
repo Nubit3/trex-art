@@ -18,20 +18,20 @@ const GAMES = [
     id: "rexy-pong",
     title: "REXY PONG",
     description: "Classic DeFi Defense. Deflect the bear market meteors and farm $REX tokens in the middle zone.",
-    thumbnail: "/rexy-pong-poster.jpg", // Placeholder until you add the new poster
-    video: "/rexy-preview.mp4", // Placeholder until you add the new video
+    thumbnail: "/rexy-pong-poster.jpg",
+    video: "/rexy-preview.mp4",
     url: "/rexy-pong.html",
     orientation: "landscape",
   },
-  // --- NEW GAME ADDED HERE ---
   {
     id: "rexy-invaders",
     title: "REXY INVADERS",
     description: "Bear Market Attack! Blast through the FUD fleet, defeat the Elon Mothership, and catch falling tokens.",
-    thumbnail: "/rexy-invaders-poster.jpg", // Placeholder
-    video: "/rexy-preview.mp4", // Placeholder
+    thumbnail: "/rexy-invaders-poster.jpg",
+    // UPDATED: Now points to your specific invaders preview video
+    video: "/rexy-invaders-preview.mp4", 
     url: "/rexy-invaders.html",
-    orientation: "landscape",
+    orientation: "portrait",
   },
 ];
 
@@ -40,9 +40,10 @@ export default function GameTerminal() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showRotatePrompt, setShowRotatePrompt] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // 1. Mount Check
+  // 1. Mount Check & Mobile Detection
   useEffect(() => {
     setMounted(true);
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -51,7 +52,7 @@ export default function GameTerminal() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // 2. Scroll Lock
+  // 2. Scroll Lock when Playing
   useEffect(() => {
     if (isPlaying) {
       document.body.style.overflow = "hidden";
@@ -61,31 +62,49 @@ export default function GameTerminal() {
     return () => { document.body.style.overflow = "auto"; };
   }, [isPlaying]);
 
+  // 3. Orientation Logic
+  useEffect(() => {
+    if (!isPlaying || !isMobile || !selectedGame) {
+      setShowRotatePrompt(false);
+      return;
+    }
+
+    const checkOrientation = () => {
+      const isPortrait = window.innerHeight > window.innerWidth;
+
+      // If Game wants Landscape but Phone is Portrait -> Rotate
+      if (selectedGame.orientation === "landscape" && isPortrait) {
+        setShowRotatePrompt(true);
+      } 
+      // If Game wants Portrait but Phone is Landscape -> Rotate
+      else if (selectedGame.orientation === "portrait" && !isPortrait) {
+        setShowRotatePrompt(true);
+      } 
+      else {
+        setShowRotatePrompt(false);
+      }
+    };
+
+    checkOrientation();
+    window.addEventListener("resize", checkOrientation);
+    return () => window.removeEventListener("resize", checkOrientation);
+  }, [isPlaying, isMobile, selectedGame]);
+
   const launchGame = () => {
     setIsPlaying(true);
+    // Request Fullscreen for immersive experience
     const elem = document.documentElement;
-    if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch((err) => console.log("Fullscreen blocked:", err));
+    }
   };
 
   const exitGame = () => {
     setIsPlaying(false);
-    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
-  };
-
-  // 3. Orientation Logic
-  const [needsRotation, setNeedsRotation] = useState(false);
-  useEffect(() => {
-    if (!isPlaying || !isMobile) {
-      setNeedsRotation(false);
-      return;
+    if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
     }
-    const checkOrientation = () => {
-      setNeedsRotation(window.innerHeight > window.innerWidth);
-    };
-    checkOrientation();
-    window.addEventListener("resize", checkOrientation);
-    return () => window.removeEventListener("resize", checkOrientation);
-  }, [isPlaying, isMobile]);
+  };
 
   return (
     <div className="w-full h-full min-h-[600px] bg-[#0a0a0a] rounded-xl overflow-hidden relative border border-white/10 shadow-2xl flex flex-col">
@@ -94,18 +113,17 @@ export default function GameTerminal() {
       {!isPlaying && (
         <div className="w-full h-full overflow-y-auto custom-scrollbar p-6">
 
-            {/* 1. LIVE PREVIEWS SECTION (Top of Terminal) */}
+            {/* 1. LIVE PREVIEWS SECTION */}
             <div className="mb-10">
                 <div className="flex items-center gap-2 mb-4">
                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"/>
                     <h3 className="text-xs font-mono text-red-500 tracking-widest uppercase">Live Feeds</h3>
                 </div>
 
-                {/* Horizontal Scroll Container for Previews */}
+                {/* Horizontal Scroll Container */}
                 <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
                     {GAMES.map((game) => (
                         <div key={game.id} onClick={() => setSelectedGame(game)} className="snap-center shrink-0 w-[280px] md:w-[400px] aspect-video rounded-lg border border-white/10 bg-black overflow-hidden relative cursor-pointer group hover:border-emerald-500/50 transition-all">
-                            {/* Video Autoplays nicely here */}
                             <video
                                 src={game.video}
                                 className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
@@ -114,14 +132,12 @@ export default function GameTerminal() {
                             <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black to-transparent p-4">
                                 <span className="text-white font-bold text-sm">{game.title}</span>
                             </div>
-                            {/* Play Icon Overlay */}
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <div className="w-12 h-12 bg-emerald-500/90 rounded-full flex items-center justify-center text-black font-bold">▶</div>
                             </div>
                         </div>
                     ))}
 
-                    {/* Placeholder for "Coming Soon" Feed */}
                     <div className="snap-center shrink-0 w-[280px] md:w-[400px] aspect-video rounded-lg border border-white/5 bg-white/5 flex flex-col items-center justify-center">
                         <span className="text-4xl opacity-20">📡</span>
                         <span className="text-xs font-mono text-slate-600 mt-2">OFFLINE SIGNAL</span>
@@ -161,12 +177,11 @@ export default function GameTerminal() {
         </div>
       )}
 
-      {/* --- DETAILS POPUP (With Video Header) --- */}
+      {/* --- DETAILS POPUP --- */}
       {selectedGame && !isPlaying && (
         <div className="absolute inset-0 z-20 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-[#111] max-w-lg w-full rounded-2xl border border-white/10 overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
 
-            {/* Video Header in Popup */}
             <div className="w-full aspect-video bg-black relative border-b border-white/10">
                 <video
                     src={selectedGame.video}
@@ -191,6 +206,7 @@ export default function GameTerminal() {
       {/* --- ACTIVE GAME (PORTAL) --- */}
       {mounted && isPlaying && selectedGame && createPortal(
         <div className="fixed inset-0 z-[99999] bg-black w-screen h-screen overflow-hidden touch-none">
+            {/* EXIT BUTTON */}
             <button
               onClick={exitGame}
               className="fixed top-6 right-6 z-[100000] bg-red-600/90 text-white w-12 h-12 rounded-full flex items-center justify-center font-bold border-2 border-white/20 hover:bg-red-500 shadow-xl"
@@ -198,27 +214,26 @@ export default function GameTerminal() {
               ✕
             </button>
 
-            {needsRotation && (
-               <div className="fixed inset-0 pointer-events-none flex items-center justify-center z-[100001] opacity-0 animate-pulse">
-                  <p className="text-white bg-black/50 p-2 rounded">Rotate Device</p>
+            {/* ROTATION PROMPT OVERLAY (Visible only when wrong orientation) */}
+            {showRotatePrompt && (
+               <div className="fixed inset-0 z-[100001] bg-black/95 flex flex-col items-center justify-center text-white p-6 text-center animate-in fade-in">
+                  <div className="text-6xl mb-6 animate-pulse">
+                    {selectedGame.orientation === 'landscape' ? '⟲' : '📱'}
+                  </div>
+                  <h2 className="text-2xl font-bold mb-4 text-red-500">Please Rotate Device</h2>
+                  <p className="text-slate-300 max-w-xs leading-relaxed">
+                    <span className="text-emerald-400 font-bold">{selectedGame.title}</span> requires 
+                    <span className="font-bold underline ml-1">{selectedGame.orientation.toUpperCase()}</span> mode for the best experience.
+                  </p>
                </div>
             )}
 
+            {/* THE GAME IFRAME (No CSS Transforms) */}
             <iframe
               ref={iframeRef}
               src={selectedGame.url}
               title="Game Frame"
-              className="block border-0 absolute"
-              style={{
-                width: needsRotation ? "100vh" : "100vw",
-                height: needsRotation ? "100vw" : "100vh",
-                transform: needsRotation ? "rotate(90deg)" : "none",
-                transformOrigin: "center center",
-                left: "50%",
-                top: "50%",
-                marginLeft: needsRotation ? "-50vh" : "-50vw",
-                marginTop: needsRotation ? "-50vw" : "-50vh",
-              }}
+              className="w-full h-full border-0 block absolute inset-0 bg-black"
               allowFullScreen
             />
         </div>,
