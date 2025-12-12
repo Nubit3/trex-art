@@ -1,10 +1,46 @@
 import fs from "fs";
 import path from "path";
+import { Metadata } from "next"; 
 import ArtSection from "./components/ArtSection";
 import RexyChatbot from "./components/RexyChatbot";
 import Navbar from "./components/Navbar";
 import DrawSection from "./components/DrawSection";
 import GameTerminal from "./components/GameTerminal";
+
+// --- SEO METADATA (FULL LIST CONFIRMED) ---
+export const metadata: Metadata = {
+  title: "Rextoon - Free 2D Dino Game & Web3 Comics",
+  description:
+    "Play the Rextoon infinite runner game directly in your browser. Explore daily Web3 comics and digital art featuring the Green Trex Mascot.",
+  keywords: [
+    // Brand & Art
+    "Rextoon", "Web3 Comics", "Trex Mascot", "NFT Art", "Digital Artifacts",
+    // Game Specifics
+    "Dino Game", "Chrome Dino Game", "Trex Game", "Rex Game", 
+    // Broad Categories
+    "2D Game", "Game", "Mobile Game", "Retro Arcade", "Indie Game",
+    // Feature Specifics
+    "Browser Game", "Infinite Runner", "No Download Game"
+  ],
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  openGraph: {
+    title: "Rextoon - Play the 2D Dino Game",
+    description: "The best browser-based Trex game and Web3 art gallery.",
+    type: "website",
+    locale: "en_US",
+    siteName: "Rextoon",
+  },
+};
 
 // --- HELPERS ---
 function getGalleryImages() {
@@ -27,67 +63,121 @@ export default function Home() {
   const galleryImages = getGalleryImages();
   const comicsImages = getComicsImages();
 
+  // JSON-LD Schema
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "Rextoon Dino Game",
+    "genre": ["Arcade", "2D Game", "Infinite Runner", "Mobile Game"],
+    "playMode": "SinglePlayer",
+    "description": "A free 2D Trex game inspired by the classic Chrome Dino Game.",
+    "operatingSystem": "Browser, Android, iOS",
+    "character": "Green Trex Mascot",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock"
+    }
+  };
+
   return (
-    <main className="min-h-screen dino-skin-bg text-white overflow-x-hidden font-sans selection:bg-emerald-500/30">
+    <main className="min-h-screen bg-[#050505] text-white overflow-x-hidden font-sans selection:bg-emerald-500/30 relative">
+      
+      {/* CRT SCANLINE OVERLAY */}
+      <div className="fixed inset-0 z-[9999] pointer-events-none opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay"></div>
+      <div className="fixed inset-0 z-[0] pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%] bg-repeat pointer-events-none"></div>
+
+      {/* GOOGLE SCHEMA */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
       {/* NAVBAR */}
       <Navbar />
 
-      {/* 1. HERO SECTION */}
-      <section className="relative pt-32 pb-20 px-6">
-        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+      {/* HERO + GAME SECTION */}
+      <section className="relative pt-32 pb-10 px-6 z-10">
+        
+        {/* Background Glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-emerald-500/10 blur-[120px] rounded-full -z-10 pointer-events-none"></div>
 
-          <div className="space-y-8 z-10 order-2 lg:order-1">
-            
-            {/* REMOVED 'SYSTEM ONLINE' BADGE HERE */}
-
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-white">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center mb-20">
+          
+          {/* TEXT SIDE */}
+          <div className="space-y-8 order-2 lg:order-1">
+            <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
               REX<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">TOON</span>
             </h1>
 
-            <p className="text-slate-400 text-lg max-w-lg leading-relaxed font-light">
-              Digital Artifacts. Blockchain Narrative. <br />
-              <span className="text-emerald-500 font-medium">The Apex Predator of Web3 Art.</span>
+            <p className="text-slate-400 text-xl max-w-lg leading-relaxed font-light border-l-2 border-emerald-500 pl-6">
+              Play the <strong>Trex Game</strong>. Collect the <strong>Art</strong>. <br />
+              <span className="text-emerald-400 font-mono text-sm uppercase tracking-widest mt-2 block">System Online • Web3 Ready</span>
             </p>
 
             <div className="flex flex-wrap gap-4 pt-4">
-              <a href="#gallery" className="px-8 py-4 bg-white text-black font-bold tracking-wide rounded hover:bg-emerald-400 transition-colors">
-                ENTER ARCHIVE
+              <a href="#game-terminal" className="group relative px-8 py-4 bg-white text-black font-bold tracking-wide rounded hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(52,211,153,0.6)]">
+                <span className="relative z-10">PLAY NOW_</span>
               </a>
-              <a href="#game" className="px-8 py-4 border border-white/20 text-white font-bold tracking-wide rounded hover:bg-white/5 transition-colors">
-                PLAY GAME
+              <a href="#gallery" className="px-8 py-4 border border-white/20 text-white font-bold tracking-wide rounded hover:bg-white/10 transition-colors">
+                VIEW GALLERY
               </a>
             </div>
           </div>
 
-          <div className="relative order-1 lg:order-2">
-            <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl w-full max-w-[600px] mx-auto lg:mx-0 bg-black">
+          {/* IMAGE SIDE */}
+          <div className="relative order-1 lg:order-2 group">
+            <div className="relative rounded-xl overflow-hidden border-2 border-white/10 shadow-2xl w-full max-w-[600px] mx-auto lg:mx-0 bg-black transform group-hover:scale-[1.02] transition-transform duration-500">
                <img
                  src="/rextoon-header.jpg"
-                 alt="Hero Art"
-                 className="w-full h-auto object-cover block"
-                 width={600} 
+                 alt="Rextoon Gameplay and Art"
+                 className="w-full h-auto object-cover block opacity-90 group-hover:opacity-100 transition-opacity"
+                 width={600}
                  height={400}
-                 fetchPriority="high" 
+                 fetchPriority="high"
                />
-               <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-transparent to-transparent opacity-50" />
+               <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent opacity-60" />
             </div>
           </div>
+        </div>
+
+        {/* GAME TERMINAL */}
+        <div id="game-terminal" className="max-w-7xl mx-auto relative z-20 mt-12">
+           <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono mb-4">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                LIVE TERMINAL
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight">
+                ARCADE <span className="text-emerald-500 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">TERMINAL</span>
+              </h2>
+           </div>
+           
+           <div className="relative max-w-5xl mx-auto">
+               <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-2xl blur opacity-20 animate-pulse"></div>
+               <div className="relative h-[600px] md:h-[700px] shadow-2xl rounded-xl overflow-hidden bg-black border border-white/10">
+                   <GameTerminal />
+               </div>
+           </div>
         </div>
       </section>
 
       {/* MAIN CONTENT */}
-      <div className="max-w-7xl mx-auto px-6 py-24 space-y-40">
+      <div className="max-w-7xl mx-auto px-6 py-32 space-y-48">
         <ArtSection
           id="gallery"
-          title="DIGITAL ARTIFACTS"
+          title="ARTIFACTS_LOG"
           images={galleryImages}
           enableRating={false}
         />
 
         <ArtSection
           id="comics"
-          title="NARRATIVE LOGS"
+          title="NARRATIVE_DATABASE"
           images={comicsImages}
           variant="comics"
         />
@@ -95,36 +185,20 @@ export default function Home() {
         <DrawSection />
       </div>
 
-      {/* GAME SECTION */}
-      <section id="game" className="w-full py-24 relative overflow-hidden mt-12">
-        <div className="max-w-7xl mx-auto px-6 relative z-10">
-          <div className="text-center mb-10">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-2 tracking-tight">
-              ARCADE <span className="text-emerald-500">TERMINAL</span>
-            </h2>
-            <p className="text-slate-500 font-mono text-sm">TRY TO BEAT THE HIGH SCORE</p>
-          </div>
-
-          <div className="max-w-5xl mx-auto h-[600px] md:h-[700px]">
-             <GameTerminal />
-          </div>
-
-        </div>
-      </section>
-
       {/* FOOTER */}
-      <footer className="border-t border-white/10 bg-[#050505] pt-16 pb-12 relative z-10">
+      <footer className="border-t border-white/10 bg-black pt-20 pb-12 relative z-10">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-8">
           <div>
-            <h4 className="text-2xl font-bold text-white mb-4">REXTOON STUDIOS</h4>
-            <p className="text-slate-500 text-sm max-w-sm leading-relaxed">
-              Forged in the prehistoric era, minted on the blockchain.
+            <h4 className="text-3xl font-bold text-white mb-6 tracking-tighter">REXTOON<span className="text-emerald-500">.XYZ</span></h4>
+            <p className="text-slate-500 text-sm max-w-sm leading-relaxed font-mono">
+              // EST. 2025 <br/>
+              // PREHISTORIC ERA x BLOCKCHAIN<br/>
+              // ALL SYSTEMS NOMINAL
             </p>
           </div>
           <div className="flex gap-8 md:justify-end items-center">
-             <a href="https://x.com/trex_btc" className="text-slate-400 hover:text-white transition text-sm font-bold tracking-widest uppercase">Twitter</a>
-             <a href="https://t.me/trex_btc" className="text-slate-400 hover:text-white transition text-sm font-bold tracking-widest uppercase">Telegram</a>
-             <a href="mailto:trex.btc.eth@gmail.com" className="text-slate-400 hover:text-white transition text-sm font-bold tracking-widest uppercase">Email</a>
+             <a href="https://x.com/trex_btc" className="text-slate-400 hover:text-white transition text-sm font-bold tracking-widest uppercase hover:underline decoration-emerald-500 underline-offset-4">Twitter</a>
+             <a href="https://t.me/trex_btc" className="text-slate-400 hover:text-white transition text-sm font-bold tracking-widest uppercase hover:underline decoration-emerald-500 underline-offset-4">Telegram</a>
           </div>
         </div>
       </footer>
