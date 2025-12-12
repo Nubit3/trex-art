@@ -19,7 +19,7 @@ const GAMES = [
     title: "REXY PONG",
     description: "Classic DeFi Defense. Deflect the bear market meteors and farm $REX tokens in the middle zone.",
     thumbnail: "/rexy-pong-poster.jpg",
-    video: "/rexy-preview.mp4",
+    video: "/rexy-pong-preview.mp4",
     url: "/rexy-pong.html",
     orientation: "landscape",
   },
@@ -28,8 +28,7 @@ const GAMES = [
     title: "REXY INVADERS",
     description: "Bear Market Attack! Blast through the FUD fleet, defeat the Elon Mothership, and catch falling tokens.",
     thumbnail: "/rexy-invaders-poster.jpg",
-    // UPDATED: Now points to your specific invaders preview video
-    video: "/rexy-invaders-preview.mp4", 
+    video: "/rexy-invaders-preview.mp4",
     url: "/rexy-invaders.html",
     orientation: "portrait",
   },
@@ -41,7 +40,12 @@ export default function GameTerminal() {
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showRotatePrompt, setShowRotatePrompt] = useState(false);
+  
+  // New State for Scrolling
+  const [isAutoScrolling, setIsAutoScrolling] = useState(true);
+  
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // 1. Mount Check & Mobile Detection
   useEffect(() => {
@@ -71,16 +75,11 @@ export default function GameTerminal() {
 
     const checkOrientation = () => {
       const isPortrait = window.innerHeight > window.innerWidth;
-
-      // If Game wants Landscape but Phone is Portrait -> Rotate
       if (selectedGame.orientation === "landscape" && isPortrait) {
         setShowRotatePrompt(true);
-      } 
-      // If Game wants Portrait but Phone is Landscape -> Rotate
-      else if (selectedGame.orientation === "portrait" && !isPortrait) {
+      } else if (selectedGame.orientation === "portrait" && !isPortrait) {
         setShowRotatePrompt(true);
-      } 
-      else {
+      } else {
         setShowRotatePrompt(false);
       }
     };
@@ -90,9 +89,35 @@ export default function GameTerminal() {
     return () => window.removeEventListener("resize", checkOrientation);
   }, [isPlaying, isMobile, selectedGame]);
 
+  // 4. Auto-Scroll Logic (The Loop)
+  useEffect(() => {
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer || !isAutoScrolling) return;
+
+    let animationFrameId: number;
+
+    const scroll = () => {
+      if (scrollContainer) {
+        // Move 1 pixel to the right
+        scrollContainer.scrollLeft += 1;
+
+        // Infinite Loop Logic:
+        // If we have scrolled past the first set of games (halfway), snap back to 0
+        // We use scrollWidth / 2 because we duplicated the list below
+        if (scrollContainer.scrollLeft >= scrollContainer.scrollWidth / 2) {
+           scrollContainer.scrollLeft = 0;
+        }
+      }
+      animationFrameId = requestAnimationFrame(scroll);
+    };
+
+    animationFrameId = requestAnimationFrame(scroll);
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [isAutoScrolling]);
+
   const launchGame = () => {
     setIsPlaying(true);
-    // Request Fullscreen for immersive experience
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
         elem.requestFullscreen().catch((err) => console.log("Fullscreen blocked:", err));
@@ -121,13 +146,29 @@ export default function GameTerminal() {
                 </div>
 
                 {/* Horizontal Scroll Container */}
-                <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
-                    {GAMES.map((game) => (
-                        <div key={game.id} onClick={() => setSelectedGame(game)} className="snap-center shrink-0 w-[280px] md:w-[400px] aspect-video rounded-lg border border-white/10 bg-black overflow-hidden relative cursor-pointer group hover:border-emerald-500/50 transition-all">
+                <div 
+                  ref={scrollRef}
+                  className="flex gap-4 overflow-x-auto pb-4 no-scrollbar"
+                  // Pause auto-scroll on interaction
+                  onMouseEnter={() => setIsAutoScrolling(false)}
+                  onMouseLeave={() => setIsAutoScrolling(true)}
+                  onTouchStart={() => setIsAutoScrolling(false)}
+                  onTouchEnd={() => setIsAutoScrolling(true)}
+                >
+                    {/* We duplicate the array [...GAMES, ...GAMES] to create the seamless loop buffer */}
+                    {[...GAMES, ...GAMES].map((game, index) => (
+                        <div 
+                          key={`${game.id}-${index}`} 
+                          onClick={() => setSelectedGame(game)} 
+                          className="shrink-0 w-[280px] md:w-[400px] aspect-video rounded-lg border border-white/10 bg-black overflow-hidden relative cursor-pointer group hover:border-emerald-500/50 transition-all"
+                        >
                             <video
                                 src={game.video}
-                                className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
-                                autoPlay muted loop playsInline
+                                className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none" // pointer-events-none disables the pause button/controls
+                                autoPlay 
+                                muted 
+                                loop 
+                                playsInline
                             />
                             <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black to-transparent p-4">
                                 <span className="text-white font-bold text-sm">{game.title}</span>
@@ -137,11 +178,6 @@ export default function GameTerminal() {
                             </div>
                         </div>
                     ))}
-
-                    <div className="snap-center shrink-0 w-[280px] md:w-[400px] aspect-video rounded-lg border border-white/5 bg-white/5 flex flex-col items-center justify-center">
-                        <span className="text-4xl opacity-20">📡</span>
-                        <span className="text-xs font-mono text-slate-600 mt-2">OFFLINE SIGNAL</span>
-                    </div>
                 </div>
             </div>
 
@@ -185,7 +221,7 @@ export default function GameTerminal() {
             <div className="w-full aspect-video bg-black relative border-b border-white/10">
                 <video
                     src={selectedGame.video}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover pointer-events-none" // Disable controls here too
                     autoPlay muted loop playsInline
                 />
                 <button onClick={() => setSelectedGame(null)} className="absolute top-4 right-4 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-500 transition">✕</button>
@@ -214,7 +250,7 @@ export default function GameTerminal() {
               ✕
             </button>
 
-            {/* ROTATION PROMPT OVERLAY (Visible only when wrong orientation) */}
+            {/* ROTATION PROMPT OVERLAY */}
             {showRotatePrompt && (
                <div className="fixed inset-0 z-[100001] bg-black/95 flex flex-col items-center justify-center text-white p-6 text-center animate-in fade-in">
                   <div className="text-6xl mb-6 animate-pulse">
@@ -222,13 +258,13 @@ export default function GameTerminal() {
                   </div>
                   <h2 className="text-2xl font-bold mb-4 text-red-500">Please Rotate Device</h2>
                   <p className="text-slate-300 max-w-xs leading-relaxed">
-                    <span className="text-emerald-400 font-bold">{selectedGame.title}</span> requires 
+                    <span className="text-emerald-400 font-bold">{selectedGame.title}</span> requires
                     <span className="font-bold underline ml-1">{selectedGame.orientation.toUpperCase()}</span> mode for the best experience.
                   </p>
                </div>
             )}
 
-            {/* THE GAME IFRAME (No CSS Transforms) */}
+            {/* THE GAME IFRAME */}
             <iframe
               ref={iframeRef}
               src={selectedGame.url}

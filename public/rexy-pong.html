@@ -7,32 +7,43 @@
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     /* --- CORE STYLES --- */
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #020205; font-family: 'Press Start 2P', cursive; user-select: none; touch-action: none; }
-    
-    #game-container { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: #000; overflow: hidden; }
-    
+    html, body {
+        margin: 0; padding: 0; width: 100%; height: 100%;
+        overflow: hidden; background-color: #020205;
+        font-family: 'Press Start 2P', cursive;
+        user-select: none; -webkit-user-select: none;
+        touch-action: none;
+    }
+
+    /* Fixed container to prevent mobile browser bar overlap issues */
+    #game-container {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; justify-content: center; align-items: center;
+        background: #000; overflow: hidden;
+    }
+
     canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; z-index: 1; }
-    
+
     /* SOFT CRT OVERLAY */
-    #scanlines { 
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+    #scanlines {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
         background-size: 100% 3px, 3px 100%;
         pointer-events: none; z-index: 5; opacity: 0.3;
     }
 
-    /* CYBER UI LAYER (Restored) */
+    /* CYBER UI LAYER */
     .ui-layer { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 40px; box-sizing: border-box; pointer-events: none; z-index: 10; color: white; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
     .score-box { text-align: center; opacity: 0.9; transition: color 1s; }
     .score-label { font-size: 10px; color: #888; margin-bottom: 5px; display: block; letter-spacing: 2px; }
     .score-val { font-size: 30px; font-weight: bold; }
-    
-    .rex-box { 
-        background: rgba(0,0,0,0.6); 
-        border: 2px solid #FFD700; 
-        padding: 10px 20px; 
-        border-radius: 8px; 
-        box-shadow: 0 0 15px rgba(255, 215, 0, 0.2); 
+
+    .rex-box {
+        background: rgba(0,0,0,0.6);
+        border: 2px solid #FFD700;
+        padding: 10px 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
         backdrop-filter: blur(4px);
     }
 
@@ -41,7 +52,7 @@
 
     /* SCREENS */
     #start-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); backdrop-filter: blur(8px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; }
-    
+
     #ban-screen {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(20, 0, 0, 0.95); color: #ff5555;
@@ -49,9 +60,28 @@
         display: none; flex-direction: column; justify-content: center; align-items: center;
         text-align: center; z-index: 1000;
     }
+
+    /* --- MOBILE ORIENTATION FIX --- */
+    #rotate-message {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: #020205; z-index: 9999; flex-direction: column;
+        justify-content: center; align-items: center; text-align: center; color: #00ff9d;
+    }
+    /* Show rotate message only on Portrait Mobile */
+    @media screen and (orientation: portrait) {
+        #rotate-message { display: flex; }
+        #game-container { visibility: hidden; }
+    }
   </style>
 </head>
 <body>
+
+<div id="rotate-message">
+    <div style="font-size: 40px; margin-bottom: 20px;">↻</div>
+    <div style="font-size: 14px; line-height: 1.5; padding: 0 20px;">
+        PLEASE ROTATE DEVICE<br>FOR ZEN MODE
+    </div>
+</div>
 
 <div id="game-container">
     <div id="scanlines"></div>
@@ -120,9 +150,19 @@
     let animationFrameId;
 
     function resize() {
-        W = window.innerWidth; H = window.innerHeight;
-        canvas.width = W; canvas.height = H;
+        // Fix for mobile browser bars: Use window.innerWidth/Height directly
+        // and force canvas to match exactly, ensuring no scrollbars.
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = W;
+        canvas.height = H;
         ctx.imageSmoothingEnabled = false;
+        
+        // Ensure AI is reachable on resize
+        if (typeof ai !== 'undefined') {
+             ai.x = W - 50; 
+             ai.y = Math.min(ai.y, H - ai.h);
+        }
         initBackgrounds(); // Re-init on resize
     }
     window.addEventListener('resize', resize);
@@ -135,7 +175,7 @@
     let bgMode = 0; // 0: Drift, 1: Rain, 2: Bokeh
     let bgTimer = 0;
     let fadeProgress = 0; // 0.0 to 1.0 (Fade into next mode)
-    
+
     let stars = []; let rain = []; let bubbles = [];
 
     function initBackgrounds() {
@@ -151,9 +191,9 @@
 
         bgTimer++;
         if(bgTimer > 1200) { // Start fading after 20 seconds
-            fadeProgress += 0.005; 
+            fadeProgress += 0.005;
             if(fadeProgress >= 1) {
-                bgMode = (bgMode + 1) % 3; 
+                bgMode = (bgMode + 1) % 3;
                 fadeProgress = 0; bgTimer = 0;
             }
         }
@@ -164,11 +204,11 @@
         if (mode === 0) {
             ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
             stars.forEach(s => { ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI*2); ctx.fill(); });
-        } 
+        }
         else if (mode === 1) {
             ctx.fillStyle = "rgba(0, 255, 100, 0.15)";
             rain.forEach(r => { ctx.fillRect(r.x, r.y, 2, r.len); });
-        } 
+        }
         else if (mode === 2) {
             bubbles.forEach(b => {
                 ctx.fillStyle = "rgba(100, 100, 255, " + b.opacity + ")";
@@ -279,7 +319,7 @@
         if (activeToken) {
             const dx = ball.x - (activeToken.x + activeToken.size/2); const dy = ball.y - (activeToken.y + activeToken.size/2);
             if (Math.sqrt(dx*dx + dy*dy) < activeToken.size/2 + ball.r) {
-                const now = Date.now(); if (now - _lastTokenTime < 50) { /* Rate Limit */ } 
+                const now = Date.now(); if (now - _lastTokenTime < 50) { /* Rate Limit */ }
                 else {
                     _lastTokenTime = now;
                     _s0x += 1; document.getElementById('rex-score').innerText = _s0x;
@@ -288,7 +328,7 @@
             }
         } else { tokenTimer++; if(tokenTimer > nextTokenTime) spawnToken(); }
 
-        if (ball.x < 0) { _a0x++; document.getElementById('ai-score').innerText = _a0x; sfx.score(); shake = 10; resetBall(); } 
+        if (ball.x < 0) { _a0x++; document.getElementById('ai-score').innerText = _a0x; sfx.score(); shake = 10; resetBall(); }
         else if (ball.x > W) { _p0x++; document.getElementById('p-score').innerText = _p0x; sfx.score(); shake = 10; resetBall(); }
 
         for(let i = particles.length - 1; i >= 0; i--) { let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.05; if(p.life <= 0) particles.splice(i, 1); }
@@ -306,7 +346,7 @@
 
         if (activeToken) {
             const pulse = Math.sin(Date.now() / 150) * 5;
-            if(assets.token.img.complete) { ctx.shadowBlur = 20; ctx.shadowColor = '#FFD700'; ctx.drawImage(assets.token.img, activeToken.x - pulse, activeToken.y - pulse, activeToken.size + (pulse*2), activeToken.size + (pulse*2)); ctx.shadowBlur = 0; } 
+            if(assets.token.img.complete) { ctx.shadowBlur = 20; ctx.shadowColor = '#FFD700'; ctx.drawImage(assets.token.img, activeToken.x - pulse, activeToken.y - pulse, activeToken.size + (pulse*2), activeToken.size + (pulse*2)); ctx.shadowBlur = 0; }
             else { ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.arc(activeToken.x + 20, activeToken.y + 20, 15 + pulse, 0, Math.PI*2); ctx.fill(); }
         }
 

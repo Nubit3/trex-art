@@ -8,11 +8,11 @@
   <style>
     /* --- CORE STYLES --- */
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: 'Press Start 2P', cursive; user-select: none; touch-action: none; }
-    
+
     #game-container { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: #000; }
-    
+
     canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
-    
+
     #scanlines { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%); background-size: 100% 4px; pointer-events: none; z-index: 5; opacity: 0.3; }
 
     /* --- FIXED UI (HTML OVERLAY) --- */
@@ -31,9 +31,28 @@
     #start-screen { background: rgba(0,0,0,0.85); }
     #ban-screen { background: rgba(50, 0, 0, 0.95); color: #ff5555; border: 4px solid red; box-sizing: border-box; display: none; }
     #mute-btn { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 30; background: rgba(0,0,0,0.6); border: 2px solid #777; color: white; padding: 10px 20px; font-family: 'Press Start 2P'; font-size: 10px; cursor: pointer; user-select: none; border-radius: 4px; }
+
+    /* --- MOBILE ORIENTATION FIX --- */
+    #rotate-message {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: #000; z-index: 9999; flex-direction: column;
+        justify-content: center; align-items: center; text-align: center; color: #34d399;
+    }
+    /* Show rotate message only on Portrait Mobile */
+    @media screen and (orientation: portrait) {
+        #rotate-message { display: flex; }
+        #game-container { visibility: hidden; }
+    }
   </style>
 </head>
 <body>
+
+<div id="rotate-message">
+    <div style="font-size: 40px; margin-bottom: 20px;">↻</div>
+    <div style="font-size: 14px; line-height: 1.5; padding: 0 20px;">
+        PLEASE ROTATE DEVICE<br>FOR SECURE CONNECTION
+    </div>
+</div>
 
 <div id="game-container">
     <div id="scanlines"></div>
@@ -54,25 +73,25 @@
         </p>
         <div style="border: 2px solid #fff; padding: 15px 30px; color: #fff; animation: blink 1s infinite; cursor: pointer;">START</div>
     </div>
-    
+
     <div id="ban-screen" class="overlay-screen">
         <h1 style="color:red; margin-bottom:20px;">SYSTEM LOCKDOWN</h1>
         <div>SUSPICIOUS ACTIVITY.<br>ACCESS DENIED.</div>
     </div>
-    
+
     <canvas id="rexyCanvas"></canvas>
 </div>
 
 <script>
 (function() {
     // --- 🛡️ SECURITY LAYER ---
-    window.godMode = false; window.speedHack = false; 
-    let _s_secure = 0; let _t_secure = 0; 
+    window.godMode = false; window.speedHack = false;
+    let _s_secure = 0; let _t_secure = 0;
     let _lastTokenTime = 0; let _lastJumpTime = 0;
-    
-    if (localStorage.getItem('rexy_ban_status') === 'banned') { 
-        triggerBan("PRIOR OFFENSE DETECTED"); 
-        return; 
+
+    if (localStorage.getItem('rexy_ban_status') === 'banned') {
+        triggerBan("PRIOR OFFENSE DETECTED");
+        return;
     }
 
     function triggerBan(reason) {
@@ -108,6 +127,7 @@
         canvas.width = W;
         canvas.height = H;
         if (H > W) {
+            // Portrait logic handled by CSS overlay, but kept for fallback
             GROUND_Y = H - 180;
             SCALE = 0.9;
         } else {
@@ -145,9 +165,9 @@
 
     // --- 3. BIOMES ---
     const biomes = [
-        { sky: [135, 206, 235], horizon: [210, 180, 140], ground: [244, 164, 96], detail: [199, 140, 83], line: [139, 69, 19], text: [51, 51, 51], starAlpha: 0.0 }, 
+        { sky: [135, 206, 235], horizon: [210, 180, 140], ground: [244, 164, 96], detail: [199, 140, 83], line: [139, 69, 19], text: [51, 51, 51], starAlpha: 0.0 },
         { sky: [10, 10, 42],    horizon: [0, 51, 0],      ground: [0, 77, 0],      detail: [0, 102, 0],    line: [0, 255, 0],    text: [255, 255, 255], starAlpha: 0.6 },
-        { sky: [224, 247, 250], horizon: [178, 235, 242], ground: [255, 255, 255], detail: [167, 198, 207], line: [0, 172, 193],  text: [51, 51, 51],    starAlpha: 0.0 }, 
+        { sky: [224, 247, 250], horizon: [178, 235, 242], ground: [255, 255, 255], detail: [167, 198, 207], line: [0, 172, 193],  text: [51, 51, 51],    starAlpha: 0.0 },
         { sky: [34, 10, 10],    horizon: [51, 0, 0],      ground: [26, 26, 26],    detail: [68, 17, 17],    line: [255, 51, 0],    text: [255, 255, 255], starAlpha: 0.6 }
     ];
     let activePalette = JSON.parse(JSON.stringify(biomes[0]));
@@ -235,11 +255,11 @@
     // --- 5. GAME LOGIC ---
     function startLoading() {
         Object.values(assets).forEach(val => { if(val.src) val.img.src = val.src; else if(Array.isArray(val)) val.forEach(obs => obs.img.src = obs.src); });
-        
+
         // Wait briefly to ensure context is ready
         setTimeout(() => {
             resize();
-            initEnvironment(); 
+            initEnvironment();
             requestAnimationFrame(animate);
         }, 100);
     }
@@ -267,12 +287,12 @@
         draw() {
             if (frame - lastDamageFrame < 120 && Math.floor(frame/10)%2===0) return;
             let currentSprite = this.isJumping ? assets.rexyJump.img : assets.rexyRun.img;
-            
+
             // GLOW EFFECT (Multiplier)
             if (activeMultiplier > 1 && frame < multiplierTimer) {
                 ctx.save();
                 ctx.shadowBlur = 25;
-                ctx.shadowColor = "#00e5ff"; 
+                ctx.shadowColor = "#00e5ff";
             }
 
             if (currentSprite && currentSprite.complete && currentSprite.naturalWidth > 0) {
@@ -290,7 +310,7 @@
                 ctx.fillStyle = "#34d399"; ctx.fillRect(this.x, this.y, this.w, this.h);
             }
 
-            if (activeMultiplier > 1) ctx.restore(); 
+            if (activeMultiplier > 1) ctx.restore();
         }
     };
 
@@ -311,14 +331,14 @@
             const heroRoll = Math.random();
             let img = assets.vitalik.img; let mult = 2; // Default
             // MULTIPLIER LOGIC
-            if (heroRoll > 0.85) { img = assets.elon.img; mult=5; } 
-            else if (heroRoll > 0.60) { img = assets.trump.img; mult=4; } 
+            if (heroRoll > 0.85) { img = assets.elon.img; mult=5; }
+            else if (heroRoll > 0.60) { img = assets.trump.img; mult=4; }
             else if (heroRoll > 0.35) { img = assets.cz.img; mult=3; }
-            
+
             obstacles.push({ x: spawnX, y: GROUND_Y - (88*obsScale), w: 80*obsScale, h: 88*obsScale, img: img, type: 'hero', multiplier: mult, passed: false });
             return;
         }
-        
+
         if (r > 0.65) {
             let skyImg = assets.rocket.img; let movement = 'sine'; const skyRoll = Math.random();
             if (skyRoll < 0.16) { skyImg = assets.rocket.img; movement = 'sine'; }
@@ -346,7 +366,7 @@
 
     function animate() {
         if (isPaused) { requestAnimationFrame(animate); return; }
-        
+
         checkSecurity();
 
         const colors = updateBiomeAndColors();
@@ -408,19 +428,24 @@
             if(obs.img && obs.img.complete && obs.img.naturalWidth > 0) { ctx.drawImage(obs.img, obs.x, drawY, obs.w, obs.h); }
             else { ctx.fillStyle = (obs.type === 'hero') ? '#4ade80' : '#f87171'; ctx.fillRect(obs.x, drawY, obs.w, obs.h); }
 
-            // Collision
-            if (rexy.x < obs.x + obs.w - 20 && rexy.x + rexy.w > obs.x + 20 && rexy.y < obs.y + obs.h - 10 && rexy.y + rexy.h > obs.y + 10) {
+            // --- HITBOX FIX HERE ---
+            // Tighter collision: Added more padding (+25/30) so rexy has to go "deep" into obstacle to crash
+            if (rexy.x < obs.x + obs.w - 25 &&
+                rexy.x + rexy.w > obs.x + 25 &&
+                rexy.y < obs.y + obs.h - 25 &&
+                rexy.y + rexy.h > obs.y + 25) {
+
                  if (obs.type === 'hero' && !obs.passed) { /* pass */ }
                  else if (frame - lastDamageFrame > 120) { lives--; sfx.hurt(); lastDamageFrame = frame; if(lives<=0) { isGameOver=true; sfx.crash(); musicEngine.gameOverFX(); } }
             }
-            
+
             // Pass Hero Logic (Boost & Heal)
             if (obs.type === 'hero' && !obs.passed && obs.x + obs.w < rexy.x) {
                 obs.passed = true;
                 activeMultiplier = obs.multiplier;
                 multiplierTimer = frame + 600; // 10 seconds boost
                 sfx.powerup();
-                
+
                 heroPassCount++;
                 if (heroPassCount >= HEROES_TO_HEAL) {
                     heroPassCount = 0;
@@ -435,10 +460,10 @@
             const pulse = Math.sin(frame * 0.2) * 5;
             if(assets.rexToken.img.complete && assets.rexToken.img.naturalWidth > 0) { ctx.drawImage(assets.rexToken.img, t.x - pulse/2, t.y - pulse/2, t.w + pulse, t.h + pulse); }
             else { ctx.fillStyle="gold"; ctx.beginPath(); ctx.arc(t.x + t.w/2, t.y + t.h/2, (t.w/2) + pulse, 0, Math.PI*2); ctx.fill(); }
-            
+
             if (rexy.x < t.x + t.w && rexy.x + rexy.w > t.x && rexy.y < t.y + t.h && rexy.y + rexy.h > t.y) {
                 const now = Date.now();
-                if(now - _lastTokenTime < 50) { 
+                if(now - _lastTokenTime < 50) {
                     // Too fast! Ignore token.
                 } else {
                     _lastTokenTime = now;
@@ -466,17 +491,17 @@
     }
 
     function handleInput() {
-        if(!gameStarted && !isCountingDown) { 
-            if(audioCtx.state === 'suspended') audioCtx.resume(); 
-            musicEngine.stop(); 
-            sfx.playTone(600, 'square', 0.1); 
-            startCountdown(); 
+        if(!gameStarted && !isCountingDown) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            musicEngine.stop();
+            sfx.playTone(600, 'square', 0.1);
+            startCountdown();
             // HIDE START SCREEN
-            document.getElementById('start-screen').style.display='none'; 
-            return; 
+            document.getElementById('start-screen').style.display='none';
+            return;
         }
         if(isGameOver) { isGameOver=false; obstacles=[]; tokens=[]; distance=0; rexCount=0; lives=5; speed=4; activeMultiplier=1; startCountdown(); requestAnimationFrame(animate); return; }
-        
+
         // RATE LIMIT INPUT
         const now = Date.now();
         if(now - _lastJumpTime < 100) return;
@@ -486,13 +511,13 @@
     }
     function startCountdown() { isCountingDown=true; countdownNum=3; countdownTimer=performance.now(); }
     function initAudio() { if(audioCtx.state === 'suspended') audioCtx.resume(); if(!gameStarted && !isCountingDown) musicEngine.play('menu'); window.removeEventListener('click', initAudio); window.removeEventListener('keydown', initAudio); window.removeEventListener('touchstart', initAudio); }
-    
+
     // --- LISTENERS ---
     window.addEventListener('click', initAudio); window.addEventListener('keydown', initAudio); window.addEventListener('touchstart', initAudio);
     window.addEventListener("keydown", (e) => { if(e.code==="Space" || e.code==="ArrowUp") handleInput(); });
     document.getElementById("game-container").addEventListener("touchstart", (e) => { e.preventDefault(); handleInput(); }, {passive:false});
     document.getElementById("game-container").addEventListener("mousedown", (e) => { e.preventDefault(); handleInput(); });
-    
+
     // Explicit Start Button Click
     const startBtn = document.querySelector("#start-screen div");
     if(startBtn) startBtn.addEventListener('click', handleInput);

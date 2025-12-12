@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { Metadata } from "next"; 
+import { Metadata } from "next";
 import ArtSection from "./components/ArtSection";
 import RexyChatbot from "./components/RexyChatbot";
 import Navbar from "./components/Navbar";
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     // Brand & Art
     "Rextoon", "Web3 Comics", "Trex Mascot", "NFT Art", "Digital Artifacts",
     // Game Specifics
-    "Dino Game", "Chrome Dino Game", "Trex Game", "Rex Game", 
+    "Dino Game", "Chrome Dino Game", "Trex Game", "Rex Game",
     // Broad Categories
     "2D Game", "Game", "Mobile Game", "Retro Arcade", "Indie Game",
     // Feature Specifics
@@ -83,7 +83,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#050505] text-white overflow-x-hidden font-sans selection:bg-emerald-500/30 relative">
-      
+
       {/* CRT SCANLINE OVERLAY */}
       <div className="fixed inset-0 z-[9999] pointer-events-none opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay"></div>
       <div className="fixed inset-0 z-[0] pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%] bg-repeat pointer-events-none"></div>
@@ -99,12 +99,12 @@ export default function Home() {
 
       {/* HERO + GAME SECTION */}
       <section className="relative pt-32 pb-10 px-6 z-10">
-        
+
         {/* Background Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-emerald-500/10 blur-[120px] rounded-full -z-10 pointer-events-none"></div>
 
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center mb-20">
-          
+
           {/* TEXT SIDE */}
           <div className="space-y-8 order-2 lg:order-1">
             <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
@@ -129,6 +129,7 @@ export default function Home() {
           {/* IMAGE SIDE */}
           <div className="relative order-1 lg:order-2 group">
             <div className="relative rounded-xl overflow-hidden border-2 border-white/10 shadow-2xl w-full max-w-[600px] mx-auto lg:mx-0 bg-black transform group-hover:scale-[1.02] transition-transform duration-500">
+               {/* FIX: Removed 'aspect-[3/2]' and used 'h-auto' to allow natural image size without stretching */}
                <img
                  src="/rextoon-header.jpg"
                  alt="Rextoon Gameplay and Art"
@@ -145,18 +146,18 @@ export default function Home() {
         {/* GAME TERMINAL */}
         <div id="game-terminal" className="max-w-7xl mx-auto relative z-20 mt-12">
            <div className="text-center mb-8">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono mb-4">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                LIVE TERMINAL
-              </div>
-              <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight">
-                ARCADE <span className="text-emerald-500 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">TERMINAL</span>
-              </h2>
+             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono mb-4">
+               <span className="relative flex h-2 w-2">
+                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+               </span>
+               LIVE TERMINAL
+             </div>
+             <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight">
+               ARCADE <span className="text-emerald-500 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">TERMINAL</span>
+             </h2>
            </div>
-           
+
            <div className="relative max-w-5xl mx-auto">
                <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-2xl blur opacity-20 animate-pulse"></div>
                <div className="relative h-[600px] md:h-[700px] shadow-2xl rounded-xl overflow-hidden bg-black border border-white/10">
