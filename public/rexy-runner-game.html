@@ -38,10 +38,44 @@
         background: #000; z-index: 9999; flex-direction: column;
         justify-content: center; align-items: center; text-align: center; color: #34d399;
     }
+    
+    /* NEW BUTTON STYLE */
+    #force-rotate-btn {
+        margin-top: 30px;
+        padding: 15px 20px;
+        background: #34d399;
+        color: #000;
+        font-family: 'Press Start 2P', cursive;
+        font-size: 12px;
+        border: 2px solid #fff;
+        cursor: pointer;
+        text-transform: uppercase;
+        box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+    }
+    #force-rotate-btn:active { background: #fff; }
+
     /* Show rotate message only on Portrait Mobile */
     @media screen and (orientation: portrait) {
         #rotate-message { display: flex; }
         #game-container { visibility: hidden; }
+    }
+
+    /* --- FORCE LANDSCAPE OVERRIDE CLASS --- */
+    /* This allows the user to play in portrait by rotating the div 90deg */
+    body.force-landscape #rotate-message { display: none !important; }
+    
+    body.force-landscape #game-container {
+        visibility: visible !important;
+        position: fixed;
+        top: 0; left: 0;
+        /* Swap Width and Height */
+        width: 100vh;
+        height: 100vw;
+        /* Rotate 90 degrees and position correctly */
+        transform: rotate(90deg);
+        transform-origin: top left;
+        left: 100vw; 
+        z-index: 1;
     }
   </style>
 </head>
@@ -52,6 +86,7 @@
     <div style="font-size: 14px; line-height: 1.5; padding: 0 20px;">
         PLEASE ROTATE DEVICE<br>FOR SECURE CONNECTION
     </div>
+    <button id="force-rotate-btn">PLAY (ROTATE MODE)</button>
 </div>
 
 <div id="game-container">
@@ -122,10 +157,18 @@
 
     // --- 1. RESIZE ENGINE ---
     function resize() {
-        W = window.innerWidth;
-        H = window.innerHeight;
+        // Updated Resize logic to handle Force Rotate Mode
+        if (document.body.classList.contains('force-landscape')) {
+            W = window.innerHeight; // Width becomes Height
+            H = window.innerWidth;  // Height becomes Width
+        } else {
+            W = window.innerWidth;
+            H = window.innerHeight;
+        }
+
         canvas.width = W;
         canvas.height = H;
+        
         if (H > W) {
             // Portrait logic handled by CSS overlay, but kept for fallback
             GROUND_Y = H - 180;
@@ -138,6 +181,13 @@
         if(rexy) rexy.y = GROUND_Y - rexy.h; // Fix position after resize
     }
     window.addEventListener('resize', resize);
+
+    // --- NEW: FORCE ROTATE BUTTON LOGIC ---
+    document.getElementById('force-rotate-btn').addEventListener('click', function() {
+        document.body.classList.add('force-landscape');
+        // Trigger a resize immediately so canvas adopts the new "swapped" dimensions
+        resize();
+    });
 
     // --- 2. ASSETS ---
     const assets = {
