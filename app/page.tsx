@@ -12,6 +12,12 @@ export const metadata: Metadata = {
   title: "Rextoon - Free 2D Dino Game & Web3 Comics",
   description:
     "Play the Rextoon infinite runner game directly in your browser. Explore daily Web3 comics and digital art featuring the Green Trex Mascot.",
+  // ADDED: Browser Tab Logo Configuration
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
   keywords: [
     // Brand & Art
     "Rextoon", "Web3 Comics", "Trex Mascot", "NFT Art", "Digital Artifacts",
@@ -39,6 +45,14 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     siteName: "Rextoon",
+    images: [
+        {
+          url: "/favicon.png", // Using Logo for OG Image fallback if needed
+          width: 512,
+          height: 512,
+          alt: "Rextoon Logo",
+        },
+    ],
   },
 };
 
@@ -107,16 +121,25 @@ export default function Home() {
 
           {/* TEXT SIDE */}
           <div className="space-y-8 order-2 lg:order-1">
-            <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-              REX<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">TOON</span>
+            
+            {/* UPDATED: H1 with Logo Image integrated nicely */}
+            <h1 className="flex flex-col md:flex-row items-center md:items-end gap-4 md:gap-6 text-6xl md:text-8xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+              <img 
+                src="/favicon.png" 
+                alt="Rextoon Logo" 
+                className="w-20 h-20 md:w-28 md:h-28 object-contain drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+              />
+              <span>
+                REX<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">TOON</span>
+              </span>
             </h1>
 
-            <p className="text-slate-400 text-xl max-w-lg leading-relaxed font-light border-l-2 border-emerald-500 pl-6">
+            <p className="text-slate-400 text-xl max-w-lg leading-relaxed font-light border-l-2 border-emerald-500 pl-6 text-center md:text-left">
               Play the <strong>Trex Game</strong>. Collect the <strong>Art</strong>. <br />
               <span className="text-emerald-400 font-mono text-sm uppercase tracking-widest mt-2 block">System Online • Web3 Ready</span>
             </p>
 
-            <div className="flex flex-wrap gap-4 pt-4">
+            <div className="flex flex-wrap gap-4 pt-4 justify-center md:justify-start">
               <a href="#game-terminal" className="group relative px-8 py-4 bg-white text-black font-bold tracking-wide rounded hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(52,211,153,0.6)]">
                 <span className="relative z-10">PLAY NOW_</span>
               </a>
@@ -129,7 +152,6 @@ export default function Home() {
           {/* IMAGE SIDE */}
           <div className="relative order-1 lg:order-2 group">
             <div className="relative rounded-xl overflow-hidden border-2 border-white/10 shadow-2xl w-full max-w-[600px] mx-auto lg:mx-0 bg-black transform group-hover:scale-[1.02] transition-transform duration-500">
-               {/* FIX: Removed 'aspect-[3/2]' and used 'h-auto' to allow natural image size without stretching */}
                <img
                  src="/rextoon-header.jpg"
                  alt="Rextoon Gameplay and Art"
@@ -190,7 +212,15 @@ export default function Home() {
       <footer className="border-t border-white/10 bg-black pt-20 pb-12 relative z-10">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-8">
           <div>
-            <h4 className="text-3xl font-bold text-white mb-6 tracking-tighter">REXTOON<span className="text-emerald-500">.XYZ</span></h4>
+            {/* UPDATED: Footer Brand with Logo integrated */}
+            <h4 className="flex items-center gap-3 text-3xl font-bold text-white mb-6 tracking-tighter">
+                <img 
+                  src="/favicon.png" 
+                  alt="Rextoon Logo" 
+                  className="w-10 h-10 object-contain"
+                />
+                <span>REXTOON<span className="text-emerald-500">.XYZ</span></span>
+            </h4>
             <p className="text-slate-500 text-sm max-w-sm leading-relaxed font-mono">
               // EST. 2025 <br/>
               // PREHISTORIC ERA x BLOCKCHAIN<br/>
