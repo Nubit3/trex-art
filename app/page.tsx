@@ -121,13 +121,15 @@ export default function Home() {
 
           {/* TEXT SIDE */}
           <div className="space-y-8 order-2 lg:order-1">
-            
+
             {/* UPDATED: H1 with Logo Image integrated nicely */}
-            <h1 className="flex flex-col md:flex-row items-center md:items-end gap-4 md:gap-6 text-6xl md:text-8xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-              <img 
-                src="/favicon.png" 
-                alt="Rextoon Logo" 
-                className="w-20 h-20 md:w-28 md:h-28 object-contain drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+            {/* UPDATED: Changed md:items-end to md:items-center for better vertical centering */}
+            <h1 className="flex flex-col md:flex-row items-center md:items-center gap-4 md:gap-6 text-6xl md:text-8xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+              <img
+                src="/favicon.png"
+                alt="Rextoon Logo"
+                // UPDATED: Resized to w-16/w-24 for better proportions
+                className="w-16 h-16 md:w-24 md:h-24 object-contain drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]"
               />
               <span>
                 REX<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">TOON</span>
@@ -214,9 +216,9 @@ export default function Home() {
           <div>
             {/* UPDATED: Footer Brand with Logo integrated */}
             <h4 className="flex items-center gap-3 text-3xl font-bold text-white mb-6 tracking-tighter">
-                <img 
-                  src="/favicon.png" 
-                  alt="Rextoon Logo" 
+                <img
+                  src="/favicon.png"
+                  alt="Rextoon Logo"
                   className="w-10 h-10 object-contain"
                 />
                 <span>REXTOON<span className="text-emerald-500">.XYZ</span></span>

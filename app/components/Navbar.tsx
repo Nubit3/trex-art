@@ -23,10 +23,11 @@ export default function Navbar() {
 
           {/* 2. LOGO (RIGHT/CENTER) - UPDATED WITH FAVICON */}
           <div className="flex items-center gap-3">
-            <img 
-              src="/favicon.png" 
-              alt="Rextoon Logo" 
-              className="w-10 h-10 object-contain drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" 
+            <img
+              src="/favicon.png"
+              alt="Rextoon Logo"
+              // UPDATED: Adjusted size to w-8 (32px) and w-9 (36px) for perfect alignment
+              className="w-8 h-8 md:w-9 md:h-9 object-contain drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]"
             />
             <div className="text-2xl font-bold tracking-tighter text-white">
               REX<span className="text-emerald-500">TOON</span>
