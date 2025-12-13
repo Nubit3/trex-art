@@ -58,7 +58,6 @@ export default function DrawSection() {
 
     // Responsive Canvas Sizing
     const initCanvas = () => {
-       // Set internal resolution match display size for crisp lines
        const { width, height } = container.getBoundingClientRect();
        canvas.width = width;
        canvas.height = height; // Full container height
@@ -73,13 +72,12 @@ export default function DrawSection() {
        // Fill White
        ctx.fillStyle = CANVAS_BG;
        ctx.fillRect(0, 0, canvas.width, canvas.height);
-       
+
        // Save initial state for undo
        saveState();
     };
 
     initCanvas();
-    // Re-init on resize (WARNING: Clears canvas, advanced apps handle this better but this is simple)
     window.addEventListener("resize", initCanvas);
     return () => window.removeEventListener("resize", initCanvas);
   }, []);
@@ -114,11 +112,10 @@ export default function DrawSection() {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    
-    // Correct scaling issue for touch/mouse
+
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-    
+
     return {
       x: (clientX - rect.left) * (canvas.width / rect.width),
       y: (clientY - rect.top) * (canvas.height / rect.height),
@@ -126,7 +123,6 @@ export default function DrawSection() {
   };
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    // FIX: preventDefault is crucial for touch
     if(e.cancelable) e.preventDefault();
     const ctx = ctxRef.current;
     if (!ctx || !canvasRef.current) return;
@@ -145,7 +141,6 @@ export default function DrawSection() {
       ctx.beginPath();
       ctx.moveTo(x, y);
     } else {
-      // Shape tools
       setStartPoint({ x, y });
       shapeSnapshot.current = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
     }
@@ -164,13 +159,12 @@ export default function DrawSection() {
       return;
     }
 
-    // Shapes preview
     if (!startPoint || !shapeSnapshot.current) return;
-    ctx.putImageData(shapeSnapshot.current, 0, 0); // Restore background
-    
+    ctx.putImageData(shapeSnapshot.current, 0, 0);
+
     const { x: sx, y: sy } = startPoint;
     ctx.beginPath();
-    
+
     if (tool === "rect") {
         ctx.strokeRect(sx, sy, x - sx, y - sy);
     } else if (tool === "circle") {
@@ -200,7 +194,6 @@ export default function DrawSection() {
 
     if (targetColor.r === fillColor.r && targetColor.g === fillColor.g && targetColor.b === fillColor.b) return;
 
-    // Stack based fill to prevent stack overflow
     const stack = [{ x: Math.floor(x), y: Math.floor(y) }];
     while (stack.length > 0) {
       const { x: cx, y: cy } = stack.pop()!;
@@ -233,19 +226,21 @@ export default function DrawSection() {
   return (
     <section id="draw" className="py-10">
       <div className="flex items-end justify-between mb-6 border-b border-white/10 pb-4">
-        <h3 className="text-3xl font-bold text-white tracking-tighter">CREATION <span className="text-emerald-500">SUITE</span></h3>
+        {/* FIXED: Removed font-bold */}
+        <h3 className="text-3xl font-silkscreen text-white tracking-tighter">
+          CREATION <span className="text-[#4ADE80]">SUITE</span>
+        </h3>
         <span className="text-xs font-mono text-slate-500">V2.0 PAINT</span>
       </div>
 
-      {/* Main Container - Mobile: Stacked, Desktop: Sidebar + Canvas */}
       <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[650px]">
-        
+
         {/* --- LEFT SIDEBAR (TOOLS) --- */}
         <div className="bg-[#111] border border-white/10 rounded-xl p-4 flex flex-col gap-6 lg:w-[260px] shrink-0 shadow-xl">
-           
+
            {/* Tools Grid */}
            <div>
-               <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-3 block">Tools</label>
+               <label className="text-[10px] text-slate-500 font-silkscreen uppercase tracking-widest mb-3 block">Tools</label>
                <div className="grid grid-cols-4 gap-2">
                    {[
                        { id: 'brush', icon: <Icons.Pencil /> },
@@ -259,8 +254,8 @@ export default function DrawSection() {
                            key={item.id}
                            onClick={() => item.action ? item.action() : setTool(item.id as any)}
                            className={`aspect-square flex items-center justify-center rounded transition-all ${
-                               !item.action && tool === item.id 
-                               ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' 
+                               !item.action && tool === item.id
+                               ? 'bg-[#4ADE80] text-black shadow-lg shadow-emerald-500/20'
                                : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
                            }`}
                        >
@@ -272,7 +267,7 @@ export default function DrawSection() {
 
            {/* Palette */}
            <div>
-               <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-3 block">Color</label>
+               <label className="text-[10px] text-slate-500 font-silkscreen uppercase tracking-widest mb-3 block">Color</label>
                <div className="grid grid-cols-6 gap-2">
                    {palette.map(c => (
                        <button
@@ -287,20 +282,22 @@ export default function DrawSection() {
 
            {/* Size Slider */}
            <div>
-               <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-3 block">Size: {brushSize}px</label>
-               <input 
-                   type="range" min="1" max="40" value={brushSize} 
+               <label className="text-[10px] text-slate-500 font-silkscreen uppercase tracking-widest mb-3 block">Size: {brushSize}px</label>
+               <input
+                   type="range" min="1" max="40" value={brushSize}
                    onChange={(e) => setBrushSize(Number(e.target.value))}
-                   className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                   className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[#4ADE80]"
                />
            </div>
 
            {/* Actions */}
            <div className="mt-auto pt-4 border-t border-white/10 flex flex-col gap-2">
-               <button onClick={download} className="flex items-center justify-center gap-2 w-full py-3 bg-white text-black font-bold text-xs uppercase tracking-widest rounded hover:bg-emerald-400 transition-colors">
+               {/* FIXED: Removed font-bold */}
+               <button onClick={download} className="flex items-center justify-center gap-2 w-full py-3 bg-white text-black font-silkscreen text-xs uppercase tracking-widest rounded hover:bg-[#4ADE80] transition-colors">
                    <Icons.Download /> Save Art
                </button>
-               <button onClick={clearCanvas} className="flex items-center justify-center gap-2 w-full py-3 bg-red-900/20 text-red-400 font-bold text-xs uppercase tracking-widest rounded hover:bg-red-900/40 transition-colors border border-red-900/50">
+               {/* FIXED: Removed font-bold */}
+               <button onClick={clearCanvas} className="flex items-center justify-center gap-2 w-full py-3 bg-red-900/20 text-red-400 font-silkscreen text-xs uppercase tracking-widest rounded hover:bg-red-900/40 transition-colors border border-red-900/50">
                    <Icons.Trash /> Clear
                </button>
            </div>
@@ -308,7 +305,6 @@ export default function DrawSection() {
 
         {/* --- RIGHT: CANVAS AREA --- */}
         <div className="flex-1 bg-[#222] rounded-xl border border-white/10 overflow-hidden relative shadow-2xl flex flex-col">
-            {/* Top Bar (Optional status) */}
             <div className="h-8 bg-[#333] border-b border-white/5 flex items-center px-4">
                 <div className="flex gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full bg-red-500/50"/>
@@ -318,7 +314,6 @@ export default function DrawSection() {
                 <span className="mx-auto text-[10px] font-mono text-slate-500">CANVAS: 100% ZOOM</span>
             </div>
 
-            {/* Canvas Container */}
             <div ref={containerRef} className="flex-1 relative cursor-crosshair bg-[#1a1a1a] touch-none">
                 <canvas
                     ref={canvasRef}

@@ -13,40 +13,39 @@ export default function Navbar() {
           {/* 1. HAMBURGER BUTTON (LEFT) */}
           <button
             onClick={() => setIsOpen(true)}
-            className="p-2 text-white hover:text-emerald-400 transition-colors"
+            className="p-2 text-white hover:text-[#4ADE80] transition-colors"
           >
-            {/* The 3 Dashes Icon */}
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
           </button>
 
-          {/* 2. LOGO (RIGHT/CENTER) - UPDATED WITH FAVICON */}
-          <div className="flex items-center gap-3">
+          {/* 2. LOGO (RIGHT/CENTER) */}
+          <div className="flex items-center gap-[10px]">
             <img
               src="/favicon.png"
               alt="Rextoon Logo"
-              // UPDATED: Adjusted size to w-8 (32px) and w-9 (36px) for perfect alignment
-              className="w-8 h-8 md:w-9 md:h-9 object-contain drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+              className="h-[32px] w-auto object-contain drop-shadow-[0_0_8px_rgba(74,222,128,0.5)]"
             />
-            <div className="text-2xl font-bold tracking-tighter text-white">
-              REX<span className="text-emerald-500">TOON</span>
+            {/* FIXED: Removed font-bold to improve legibility */}
+            <div className="font-silkscreen text-[24px] tracking-tight text-white leading-none">
+              REX
+              <span className="text-[#4ADE80] drop-shadow-[0_0_8px_rgba(74,222,128,0.6)]">
+                TOON
+              </span>
             </div>
           </div>
 
         </div>
       </nav>
 
-      {/* SIDEBAR SLIDER (LEFT SIDE) */}
-
-      {/* Overlay Backdrop */}
+      {/* SIDEBAR SLIDER */}
       <div
         className={`fixed inset-0 bg-black/80 z-[101] transition-opacity duration-300 ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         onClick={() => setIsOpen(false)}
       />
 
-      {/* The Actual Sidebar (Slides from LEFT) */}
-      <div className={`fixed top-0 left-0 h-full w-80 bg-[#0a0a0a] border-r border-emerald-500/20 z-[102] transform transition-transform duration-300 shadow-2xl p-8 flex flex-col gap-8 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <div className={`fixed top-0 left-0 h-full w-80 bg-[#0a0a0a] border-r border-[#4ADE80]/20 z-[102] transform transition-transform duration-300 shadow-2xl p-8 flex flex-col gap-8 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
 
         {/* Close Button */}
         <div className="flex justify-end">
@@ -57,17 +56,16 @@ export default function Navbar() {
           </button>
         </div>
 
-        {/* Menu Links */}
-        <div className="flex flex-col gap-6 mt-8">
-          <a href="#" onClick={() => setIsOpen(false)} className="text-2xl font-bold text-white hover:text-emerald-400 transition-colors">HOME</a>
-          <a href="#gallery" onClick={() => setIsOpen(false)} className="text-2xl font-bold text-white hover:text-emerald-400 transition-colors">GALLERY</a>
-          <a href="#comics" onClick={() => setIsOpen(false)} className="text-2xl font-bold text-white hover:text-emerald-400 transition-colors">COMICS</a>
-          <a href="#game" onClick={() => setIsOpen(false)} className="text-2xl font-bold text-white hover:text-emerald-400 transition-colors">GAME</a>
+        {/* MENU LINKS */}
+        <div className="flex flex-col gap-6 mt-8 font-silkscreen">
+          <a href="#" onClick={() => setIsOpen(false)} className="text-2xl text-white hover:text-[#4ADE80] transition-colors tracking-wide">HOME</a>
+          <a href="#gallery" onClick={() => setIsOpen(false)} className="text-2xl text-white hover:text-[#4ADE80] transition-colors tracking-wide">GALLERY</a>
+          <a href="#comics" onClick={() => setIsOpen(false)} className="text-2xl text-white hover:text-[#4ADE80] transition-colors tracking-wide">COMICS</a>
+          <a href="#game" onClick={() => setIsOpen(false)} className="text-2xl text-white hover:text-[#4ADE80] transition-colors tracking-wide">GAME</a>
         </div>
 
-        {/* Decor */}
         <div className="mt-auto border-t border-white/10 pt-8">
-          <p className="text-xs text-emerald-500 font-mono tracking-widest uppercase">
+          <p className="text-xs text-[#4ADE80] font-silkscreen tracking-widest uppercase">
             SYSTEM STATUS: ONLINE
           </p>
         </div>

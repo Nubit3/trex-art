@@ -2,20 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
-/* THE PREMIUM "TREX SKIN" THEME 
-   - Base: Rich Midnight
-   - Texture: Emerald Dots at 9% Opacity (Visible)
-*/
+/* --- CUSTOM FONTS UTILITY --- */
+.font-silkscreen {
+  font-family: var(--font-silkscreen), cursive;
+}
+
+/* THE PREMIUM "TREX SKIN" THEME */
 .dino-skin-bg {
-  background-color: #020617; 
-  
-  background-image: 
+  background-color: #020617;
+
+  background-image:
     /* LAYER 1: The "Scales" Texture (9% Opacity) */
-    radial-gradient(rgba(16, 185, 129, 0.09) 2px, transparent 2px), 
-    radial-gradient(rgba(16, 185, 129, 0.09) 2px, transparent 2px),
-    
+    radial-gradient(rgba(74, 222, 128, 0.09) 2px, transparent 2px),
+    radial-gradient(rgba(74, 222, 128, 0.09) 2px, transparent 2px),
+
     /* LAYER 2: Subtle Ambient Light */
-    radial-gradient(circle at 0% 0%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 0% 0%, rgba(74, 222, 128, 0.1) 0%, transparent 50%),
     radial-gradient(circle at 100% 100%, rgba(6, 182, 212, 0.1) 0%, transparent 50%);
 
   background-size: 32px 32px, 32px 32px, 100% 100%, 100% 100%;
@@ -43,13 +45,19 @@
   border: 2px solid #020617;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #10b981;
+  background: #4ADE80;
 }
 
 /* Console Frame */
 .console-frame {
-  box-shadow: 
-    0 0 0 1px #1e293b, 
-    0 0 30px rgba(0, 0, 0, 0.6), 
+  box-shadow:
+    0 0 0 1px #1e293b,
+    0 0 30px rgba(0, 0, 0, 0.6),
     inset 0 0 20px rgba(0,0,0,0.8);
+}
+
+/* --- FORCE CONSISTENCY OVERRIDE --- */
+/* This ensures that standard headers always pick up the game font */
+h1, h2, h3, h4, .font-header {
+  font-family: var(--font-silkscreen), sans-serif;
 }
